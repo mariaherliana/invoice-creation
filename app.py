@@ -292,7 +292,7 @@ st.markdown("## Create an invoice")
 
 # --- Manage line items (outside form) ---
 if "line_items" not in st.session_state or not isinstance(st.session_state.line_items, list):
-    st.session_state.line_items = [{"name": "", "desc": "", "amount": 0}]
+    st.session_state.line_items = [{"name": "New item", "desc": "", "amount": 0}]
 
 def add_item():
     st.session_state.line_items.append({"name": "New item", "desc": "", "amount": 0})
@@ -315,8 +315,8 @@ with st.form("invoice_form"):
     colA, colB = st.columns([2, 1])
 
     with colA:
-        name = st.text_input("Bill To — full name", value="Maria Herliana")
-        bill_address = st.text_area("Billing address (optional)", value="YESUNDERBAR Pte. Ltd.")
+        name = st.text_input("Bill To — full name", value="")
+        bill_address = st.text_area("Billing address (optional)", value="")
         invoice_date = st.date_input("Invoice date", value=datetime.today().date())
         due_add_days = st.selectbox("Due date offset", [7, 14, 30], index=0)
         due_date = st.date_input("Due date", value=(invoice_date + timedelta(days=due_add_days)))
