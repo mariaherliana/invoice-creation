@@ -305,14 +305,16 @@ st.markdown("## Create an invoice")
 # --- Manage line items outside the form (so callbacks are allowed) ---
 if "items" not in st.session_state:
     st.session_state.items = [
-        {"name": "Retainer Fee for September 2025", "desc": "", "amount": 5000000}
+        {"name": "item", "desc": "", "amount": "price"}
     ]
 
 # --- Manage line items (outside the form, safe for callbacks) ---
 if "items" not in st.session_state:
     st.session_state.items = [
-        {"name": "Retainer Fee for September 2025", "desc": "", "amount": 5000000}
+        {"name": "item", "desc": "", "amount": "price"}
     ]
+    
+items = st.session_state.items
 
 def add_item():
     st.session_state.items.append({"name": "New item", "desc": "", "amount": 0})
@@ -380,7 +382,7 @@ if submit:
     invoice_no = build_invoice_number(initials, seq, inv_dt)
 
     # compute total
-    total = sum([float(it.get("amount",0)) for it in st.session_state.items])
+    total = sum(float(it.get("amount", 0)) for it in items)
 
     # chosen template key map
     tpl_map = {
