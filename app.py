@@ -17,14 +17,16 @@ from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 from io import BytesIO
 import base64
+from supabase import create_client
+import os
 
 # -----------------------
 # Helpers & persistence
 # -----------------------
 
-DB_PATH = "invoices.db"
-INVOICE_DIR = Path("invoices")
-INVOICE_DIR.mkdir(exist_ok=True)
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def init_db():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -67,15 +69,21 @@ def make_initials(name: str):
     return (parts[0][0] + parts[-1][0]).upper()
 
 def get_next_sequence(initials: str, year: int):
-    c = conn.cursor()
-    c.execute(
-        "SELECT seq FROM invoices WHERE initials = ? AND strftime('%Y', invoice_date) = ? ORDER BY seq DESC LIMIT 1",
-        (initials, str(year))
+    query = (
+        supabase.table("invoices")
+        .select("seq, invoice_date")
+        .eq("initials", initials)
+        .execute()
     )
-    row = c.fetchone()
-    if row:
-        return row[0] + 1
-    return 1
+    rows = query.data
+    if not rows:
+        return 1
+    # Filter by same year
+    filtered = [r for r in rows if str(year) in (r["invoice_date"] or "")]
+    if not filtered:
+        return 1
+    last_seq = max(r["seq"] for r in filtered)
+    return last_seq + 1
 
 def build_invoice_number(initials: str, seq: int, dt: datetime):
     seq_s = f"{seq:03d}"
@@ -84,19 +92,22 @@ def build_invoice_number(initials: str, seq: int, dt: datetime):
     return f"{seq_s}/INV-{initials}/{roman}/{year}"
 
 def save_invoice_record(name, initials, seq, invoice_no, invoice_date, due_date, template, total, pdf_path):
-    c = conn.cursor()
-    c.execute(
-        "INSERT INTO invoices (name, initials, seq, invoice_no, invoice_date, due_date, template, total, pdf_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (name, initials, seq, invoice_no, invoice_date.isoformat(), due_date.isoformat(), template, total, str(pdf_path))
-    )
-    conn.commit()
-    return c.lastrowid
+    data = {
+        "name": name,
+        "initials": initials,
+        "seq": seq,
+        "invoice_no": invoice_no,
+        "invoice_date": invoice_date.isoformat(),
+        "due_date": due_date.isoformat(),
+        "template": template,
+        "total": total,
+        "pdf_path": str(pdf_path),
+    }
+    supabase.table("invoices").insert(data).execute()
 
 def fetch_history(limit=100):
-    c = conn.cursor()
-    c.execute("SELECT id, name, initials, seq, invoice_no, invoice_date, due_date, template, total, pdf_path, created_at FROM invoices ORDER BY created_at DESC LIMIT ?", (limit,))
-    rows = c.fetchall()
-    return rows
+    res = supabase.table("invoices").select("*").order("created_at", desc=True).limit(limit).execute()
+    return res.data or []
 
 # -----------------------
 # PDF generation using reportlab
