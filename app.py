@@ -419,7 +419,7 @@ if submit:
         st.error(f"PDF generation failed: {e}")
         st.stop()
 
-    # make unique filename with timestamp
+    # Create unique filename with timestamp to avoid 409 duplicate errors
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     pdf_filename = f"{invoice_no.replace('/', '-')}_{timestamp}.pdf"
     pdf_bytes = create_pdf_bytes(data, tpl_key)
@@ -427,28 +427,22 @@ if submit:
     try:
         bucket = supabase.storage.from_("invoices")
     
-        # upload new version (no overwrite)
+        # Upload new version (no overwrite)
         res = bucket.upload(
             pdf_filename,
             pdf_bytes,
             {"content-type": "application/pdf"}
         )
     
-        # public URL for display / history
+        # Get public URL for Supabase Storage file
         pdf_url = bucket.get_public_url(pdf_filename)
     
     except Exception as e:
-        st.error(f"Failed to upload PDF: {e}")
+        st.error(f"Failed to upload PDF to Supabase: {e}")
         pdf_url = None
     
-    # Upload PDF to Supabase Storage bucket
-    res = supabase.storage.from_("invoices").upload(pdf_filename, pdf_bytes)
-    if res.get("error"):
-        st.error(f"Failed to upload PDF: {res['error']['message']}")
-    pdf_url = supabase.storage.from_("invoices").get_public_url(pdf_filename)
+    # Save invoice record (store pdf_url instead of local pdf_path)
     if save_pdf:
-        with open(pdf_path, "wb") as f:
-            f.write(pdf_bytes)
         save_invoice_record(
             vendor_name,
             vendor_initials,
@@ -458,7 +452,7 @@ if submit:
             datetime.combine(due_date, datetime.min.time()),
             template_choice,
             float(total),
-            pdf_path
+            pdf_url or ""
         )
         st.success(f"Saved invoice {invoice_no} and logged it.")
 
