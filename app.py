@@ -419,19 +419,23 @@ if submit:
         st.error(f"PDF generation failed: {e}")
         st.stop()
 
-    pdf_filename = f"{invoice_no.replace('/', '-')}.pdf"
+    # make unique filename with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    pdf_filename = f"{invoice_no.replace('/', '-')}_{timestamp}.pdf"
     pdf_bytes = create_pdf_bytes(data, tpl_key)
     
     try:
-        # Upload PDF to Supabase Storage with overwrite enabled
-        res = supabase.storage.from_("invoices").upload(
+        bucket = supabase.storage.from_("invoices")
+    
+        # upload new version (no overwrite)
+        res = bucket.upload(
             pdf_filename,
             pdf_bytes,
-            file_options={"content-type": "application/pdf", "upsert": True}
+            {"content-type": "application/pdf"}
         )
     
-        # Retrieve public URL
-        pdf_url = supabase.storage.from_("invoices").get_public_url(pdf_filename)
+        # public URL for display / history
+        pdf_url = bucket.get_public_url(pdf_filename)
     
     except Exception as e:
         st.error(f"Failed to upload PDF: {e}")
