@@ -380,18 +380,23 @@ with st.form("invoice_form"):
     submit = st.form_submit_button("Generate Invoice")
 
 def reset_form():
-    for k in list(st.session_state.keys()):
-        if k.startswith(("name_", "desc_", "amt_")) or k in ["line_items"]:
-            del st.session_state[k]
+    # Clear line item inputs
+    for i in range(len(st.session_state.line_items)):
+        for prefix in ("name_", "desc_", "amt_"):
+            key = f"{prefix}{i}"
+            if key in st.session_state:
+                del st.session_state[key]
+
+    # Reset line_items itself
     st.session_state.line_items = [{"name": "New item", "desc": "", "amount": 0}]
-    st.session_state["reset_trigger"] = True # flag
 
-if st.button("🔄 Reset Form", on_click=reset_form):
-    pass
+    # Clear vendor and billing inputs
+    for key in ("name", "bill_address", "vendor_name", "vendor_address", "bank", "account_name", "account_no", "swift"):
+        if key in st.session_state:
+            del st.session_state[key]
 
-if st.session_state.get("reset_trigger"):
-    st.session_state["reset_trigger"] = False
-    st.rerun()
+# Reset button in your UI
+st.button("🔄 Reset Form", on_click=reset_form)
 
 # -----------------------
 # On submit: gather data, create PDF, save & show preview
