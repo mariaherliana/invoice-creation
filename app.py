@@ -423,12 +423,14 @@ if submit:
     pdf_bytes = create_pdf_bytes(data, tpl_key)
     
     try:
-        # Upload PDF bytes to Supabase Storage bucket
+        # Upload PDF to Supabase Storage with overwrite enabled
         res = supabase.storage.from_("invoices").upload(
-            pdf_filename, pdf_bytes, {"content-type": "application/pdf", "upsert": True}
+            pdf_filename,
+            pdf_bytes,
+            file_options={"content-type": "application/pdf", "upsert": True}
         )
     
-        # Retrieve public URL for that file
+        # Retrieve public URL
         pdf_url = supabase.storage.from_("invoices").get_public_url(pdf_filename)
     
     except Exception as e:
