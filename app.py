@@ -19,7 +19,6 @@ from io import BytesIO
 import base64
 from supabase import create_client, Client
 import os
-from supabase.lib.storage_client import StorageException
 
 # -----------------------
 # Helpers & persistence
@@ -425,12 +424,14 @@ if submit:
     
     try:
         # Upload PDF bytes to Supabase Storage bucket
-        res = supabase.storage.from_("invoices").upload(pdf_filename, pdf_bytes)
-        # If it already exists, this raises StorageException unless you allow overwrite:
-        # supabase.storage.from_("invoices").upload(pdf_filename, pdf_bytes, {"upsert": True})
+        res = supabase.storage.from_("invoices").upload(
+            pdf_filename, pdf_bytes, {"content-type": "application/pdf", "upsert": True}
+        )
     
+        # Retrieve public URL for that file
         pdf_url = supabase.storage.from_("invoices").get_public_url(pdf_filename)
-    except StorageException as e:
+    
+    except Exception as e:
         st.error(f"Failed to upload PDF: {e}")
         pdf_url = None
     
