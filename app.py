@@ -28,29 +28,6 @@ SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def init_db():
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    c = conn.cursor()
-    c.execute(
-        """CREATE TABLE IF NOT EXISTS invoices (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            initials TEXT NOT NULL,
-            seq INTEGER NOT NULL,
-            invoice_no TEXT NOT NULL,
-            invoice_date TEXT,
-            due_date TEXT,
-            template TEXT,
-            total REAL,
-            pdf_path TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        )"""
-    )
-    conn.commit()
-    return conn
-
-conn = init_db()
-
 ROMAN = {
     1: "I", 2: "II", 3: "III", 4: "IV", 5: "V", 6: "VI",
     7: "VII", 8: "VIII", 9: "IX", 10: "X", 11: "XI", 12: "XII"
