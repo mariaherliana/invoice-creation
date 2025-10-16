@@ -293,7 +293,7 @@ with st.sidebar:
     hist = fetch_history(10)
     if hist:
         for row in hist:
-            iid, name_db, initials, seq, invoice_no, invoice_date, due_date, tpl, total_db, pdf_path, created_at = row
+            iid, name_db, initials, seq, invoice_no, invoice_date, due_date, tpl, total_db, pdf_path, created_at = row, bank, account_name, account_no, swift
             col1, col2 = st.columns([3,1])
             with col1:
                 st.markdown(f"**{invoice_no}** — {name_db}")
