@@ -79,6 +79,10 @@ def save_invoice_record(name, initials, seq, invoice_no, invoice_date, due_date,
         "template": template,
         "total": total,
         "pdf_path": str(pdf_url),
+        "bank": bank,
+        "account_name": account_name,
+        "account_no": account_no,
+        "swift": swift,
     }
     supabase.table("invoices").insert(data).execute()
 
