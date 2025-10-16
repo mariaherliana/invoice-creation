@@ -16,6 +16,7 @@ from reportlab.lib.units import mm
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 from io import BytesIO
+import base64
 
 # -----------------------
 # Helpers & persistence
@@ -121,14 +122,24 @@ def draw_wrapped_string(cnv, text, x, y, max_width, leading=12):
     return y
 
 def create_pdf_bytes(data: dict, template: str) -> bytes:
+    """
+    data: dict containing:
+      - vendor_name, vendor_address
+      - invoice_no, invoice_date, due_date
+      - bill_to, bill_address
+      - items, total
+      - remittance
+    template: one of 'cream', 'pastel', 'mono'
+    """
     buffer = BytesIO()
     cnv = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
-    left = 20 * mm
-    right = 20 * mm
+
+    left, right = 20 * mm, 20 * mm
     top = height - 20 * mm
     usable_width = width - left - right
 
+    # Colors per template
     if template == "cream":
         accent = colors.HexColor("#9aa494")
         text_color = colors.HexColor("#5c4a3d")
@@ -142,33 +153,45 @@ def create_pdf_bytes(data: dict, template: str) -> bytes:
         text_color = colors.HexColor("#222222")
         header_bg = colors.HexColor("#f7f7f7")
 
+    # Header band
     cnv.setFillColor(header_bg)
     cnv.rect(left, top - 30 * mm, usable_width, 30 * mm, fill=True, stroke=False)
+
     cnv.setFillColor(text_color)
     cnv.setFont("Helvetica-Bold", 18)
     cnv.drawString(left + 6 * mm, top - 10 * mm, "INVOICE")
+
     cnv.setFont("Helvetica", 10)
     cnv.drawString(left + 6 * mm, top - 16 * mm, f"Invoice No. : {data['invoice_no']}")
     cnv.drawString(left + 6 * mm, top - 21 * mm, f"Invoice Date : {data['invoice_date'].strftime('%d-%b-%Y')}")
     cnv.drawString(left + 6 * mm, top - 26 * mm, f"Due Date : {data['due_date'].strftime('%d-%b-%Y')}")
 
+    # Vendor / From
     cnv.setFont("Helvetica-Bold", 11)
-    cnv.drawString(left, top - 42 * mm, "BILL TO:")
+    cnv.drawString(left, top - 40 * mm, "FROM:")
     cnv.setFont("Helvetica", 10)
-    y = top - 48 * mm
-    cnv.drawString(left, y, data['bill_to'])
+    cnv.drawString(left, top - 46 * mm, data.get("vendor_name", ""))
+    cnv.drawString(left, top - 52 * mm, data.get("vendor_address", ""))
+
+    # Bill To
+    cnv.setFont("Helvetica-Bold", 11)
+    cnv.drawString(left, top - 66 * mm, "BILL TO:")
+    cnv.setFont("Helvetica", 10)
+    y = top - 72 * mm
+    cnv.drawString(left, y, data["bill_to"])
     y -= 6 * mm
     if data.get("bill_address"):
-        cnv.drawString(left, y, data['bill_address'])
+        cnv.drawString(left, y, data["bill_address"])
         y -= 6 * mm
 
-    items_top = top - 70 * mm
+    # Line items
+    items_top = y - 10 * mm
     cnv.setStrokeColor(accent)
     cnv.setLineWidth(0.5)
     cnv.line(left, items_top, left + usable_width, items_top)
 
     col1_x = left
-    col3_x = left + usable_width - 6 * mm
+    col3_x = left + usable_width * 0.85
 
     cnv.setFont("Helvetica-Bold", 10)
     cnv.drawString(col1_x, items_top - 8 * mm, "No")
@@ -178,42 +201,46 @@ def create_pdf_bytes(data: dict, template: str) -> bytes:
     cnv.setFont("Helvetica", 10)
     y = items_top - 16 * mm
     idx = 1
-    for it in data['items']:
+    for it in data["items"]:
         if y < 40 * mm:
             cnv.showPage()
-            cnv.setFont("Helvetica", 10)
             y = height - 40 * mm
         cnv.drawString(col1_x, y, str(idx))
-        draw_wrapped_string(cnv, f"{it.get('name','')} - {it.get('desc','')}", col1_x + 8 * mm, y + 2, max_width=(usable_width * 0.65))
-        amount_text = f"{float(it.get('amount', 0)):,.0f}"
-        cnv.drawRightString(left + usable_width - 6 * mm, y, amount_text)
+        draw_wrapped_string(
+            cnv,
+            f"{it.get('name', '')} - {it.get('desc', '')}",
+            col1_x + 8 * mm,
+            y + 2,
+            max_width=(usable_width * 0.65),
+        )
+        cnv.drawRightString(left + usable_width - 6 * mm, y, f"{it.get('amount', 0):,.0f}")
         y -= 8 * mm
         idx += 1
 
+    # Total
     y -= 6 * mm
     cnv.setFont("Helvetica-Bold", 11)
-    cnv.drawRightString(left + usable_width - 6 * mm, y, f"TOTAL (Rp {float(data['total']):,.0f})")
+    cnv.drawRightString(left + usable_width - 6 * mm, y, f"TOTAL (Rp {data['total']:,.0f})")
     y -= 10 * mm
 
+    # Remittance
     cnv.setFont("Helvetica-Bold", 10)
     cnv.drawString(left, y, "REMITTANCE INFORMATION")
     cnv.setFont("Helvetica", 9)
     y -= 6 * mm
-    rem = data.get('remittance', {})
-    cnv.drawString(left, y, f"Bank Account : {rem.get('bank','')}")
+    rem = data.get("remittance", {})
+    cnv.drawString(left, y, f"Bank Account : {rem.get('bank', '')}")
     y -= 5 * mm
-    cnv.drawString(left, y, f"Account Name : {rem.get('account_name','')}")
+    cnv.drawString(left, y, f"Account Name : {rem.get('account_name', '')}")
     y -= 5 * mm
-    cnv.drawString(left, y, f"Account No : {rem.get('account_no','')}")
+    cnv.drawString(left, y, f"Account No : {rem.get('account_no', '')}")
     y -= 5 * mm
-    cnv.drawString(left, y, f"SWIFT Code : {rem.get('swift','')}")
-    y -= 10 * mm
+    cnv.drawString(left, y, f"SWIFT Code : {rem.get('swift', '')}")
 
     cnv.setFont("Helvetica-Oblique", 8)
     cnv.setFillColor(colors.grey)
     cnv.drawString(left, 18 * mm, "Generated by Streamlit Invoice Maker")
 
-    cnv.showPage()
     cnv.save()
     buffer.seek(0)
     return buffer.read()
@@ -317,8 +344,21 @@ with st.form("invoice_form"):
         st.markdown(f"**Current template:** {template_choice}")
         save_pdf = st.checkbox("Save PDF to server & log invoice", value=True)
 
+        st.markdown("### Vendor / Issuer")
+        vendor_name = st.text_input("Vendor name", value="YESUNDERBAR Pte. Ltd.")
+        vendor_address = st.text_area("Vendor address", value="Singapore")
+
     # ✅ Keep this button inside the `with st.form()` block
     submit = st.form_submit_button("Generate Invoice")
+
+def reset_form():
+    for k in list(st.session_state.keys()):
+        if k.startswith(("name_", "desc_", "amt_")) or k in ["line_items"]:
+            del st.session_state[k]
+    st.session_state.line_items = [{"name": "Retainer Fee", "desc": "", "amount": 5000000}]
+    st.experimental_rerun()
+
+st.button("🔄 Reset Form", on_click=reset_form)
 
 # -----------------------
 # On submit: gather data, create PDF, save & show preview
@@ -369,7 +409,9 @@ if submit:
             "account_name": account_name,
             "account_no": account_no,
             "swift": swift
-        }
+        },
+        "vendor_name": vendor_name,
+        "vendor_address": vendor_address,
     }
 
     try:
