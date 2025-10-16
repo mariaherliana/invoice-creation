@@ -328,8 +328,8 @@ with col_remove:
 st.markdown("---")
 
 previous_data = {}
-if name:  # assuming 'name' is the Bill To or vendor name
-    previous_data = get_last_remittance(name)
+if vendor_name:  # assuming 'name' is the Bill To or vendor name
+    previous_data = get_last_remittance(vendor_name)
 
 # --- The actual form ---
 with st.form("invoice_form"):
