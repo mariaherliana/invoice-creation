@@ -292,7 +292,7 @@ st.markdown("## Create an invoice")
 
 # --- Manage line items (outside form) ---
 if "line_items" not in st.session_state or not isinstance(st.session_state.line_items, list):
-    st.session_state.line_items = [{"name": "Retainer Fee", "desc": "", "amount": 5000000}]
+    st.session_state.line_items = [{"name": "", "desc": "", "amount": 0}]
 
 def add_item():
     st.session_state.line_items.append({"name": "New item", "desc": "", "amount": 0})
