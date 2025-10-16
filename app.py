@@ -335,6 +335,22 @@ with col_remove:
 
 st.markdown("---")
 
+# --- Form key for reset functionality ---
+if "form_key" not in st.session_state:
+    st.session_state.form_key = "invoice_form"
+
+def reset_form():
+    # Reset the form key to force remount
+    st.session_state.form_key = f"invoice_form_{datetime.now().timestamp()}"
+    # Reset line items
+    st.session_state.line_items = [{"name": "New item", "desc": "", "amount": 0}]
+    # Reset vendor & billing info
+    for key in ("name", "bill_address", "vendor_name", "vendor_address", "bank", "account_name", "account_no", "swift"):
+        st.session_state[key] = ""
+
+# Reset button
+st.button("🔄 Reset Form", on_click=reset_form)
+
 # --- The actual form ---
 with st.form("invoice_form"):
     colA, colB = st.columns([2, 1])
@@ -378,25 +394,6 @@ with st.form("invoice_form"):
 
     # ✅ Keep this button inside the `with st.form()` block
     submit = st.form_submit_button("Generate Invoice")
-
-def reset_form():
-    # Clear line item inputs
-    for i in range(len(st.session_state.line_items)):
-        for prefix in ("name_", "desc_", "amt_"):
-            key = f"{prefix}{i}"
-            if key in st.session_state:
-                del st.session_state[key]
-
-    # Reset line_items itself
-    st.session_state.line_items = [{"name": "New item", "desc": "", "amount": 0}]
-
-    # Clear vendor and billing inputs
-    for key in ("name", "bill_address", "vendor_name", "vendor_address", "bank", "account_name", "account_no", "swift"):
-        if key in st.session_state:
-            del st.session_state[key]
-
-# Reset button in your UI
-st.button("🔄 Reset Form", on_click=reset_form)
 
 # -----------------------
 # On submit: gather data, create PDF, save & show preview
