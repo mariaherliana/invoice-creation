@@ -335,18 +335,18 @@ with st.form("invoice_form"):
 
     with colB:
         st.markdown("### Remittance")
-        bank = st.text_input("Bank", value="BCA")
-        account_name = st.text_input("Account name", value=name)
-        account_no = st.text_input("Account no", value="5385153306")
-        swift = st.text_input("SWIFT Code", value="CENAIDJA")
+        bank = st.text_input("Bank", value="")
+        account_name = st.text_input("Account name", value="")
+        account_no = st.text_input("Account no", value="")
+        swift = st.text_input("SWIFT Code", value="")
 
         st.markdown("### Template preview & controls")
         st.markdown(f"**Current template:** {template_choice}")
         save_pdf = st.checkbox("Save PDF to server & log invoice", value=True)
 
         st.markdown("### Vendor / Issuer")
-        vendor_name = st.text_input("Vendor name", value="YESUNDERBAR Pte. Ltd.")
-        vendor_address = st.text_area("Vendor address", value="Singapore")
+        vendor_name = st.text_input("Vendor name", value="")
+        vendor_address = st.text_area("Vendor address", value="")
 
     # ✅ Keep this button inside the `with st.form()` block
     submit = st.form_submit_button("Generate Invoice")
@@ -355,7 +355,7 @@ def reset_form():
     for k in list(st.session_state.keys()):
         if k.startswith(("name_", "desc_", "amt_")) or k in ["line_items"]:
             del st.session_state[k]
-    st.session_state.line_items = [{"name": "Retainer Fee", "desc": "", "amount": 5000000}]
+    st.session_state.line_items = [{"name": "", "desc": "", "amount": ""}]
     st.rerun()
 
 st.button("🔄 Reset Form", on_click=reset_form)
