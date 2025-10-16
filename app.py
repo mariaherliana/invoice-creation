@@ -86,6 +86,22 @@ def fetch_history(limit=100):
     res = supabase.table("invoices").select("*").order("created_at", desc=True).limit(limit).execute()
     return res.data or []
 
+def get_last_remittance(name: str):
+    c = conn.cursor()
+    c.execute(
+        "SELECT bank, account_name, account_no, swift FROM invoices WHERE name = ? ORDER BY created_at DESC LIMIT 1",
+        (name,)
+    )
+    row = c.fetchone()
+    if row:
+        return {
+            "bank": row[0],
+            "account_name": row[1],
+            "account_no": row[2],
+            "swift": row[3],
+        }
+    return {}
+
 # -----------------------
 # PDF generation using reportlab
 # -----------------------
@@ -311,6 +327,10 @@ with col_remove:
 
 st.markdown("---")
 
+previous_data = {}
+if name:  # assuming 'name' is the Bill To or vendor name
+    previous_data = get_last_remittance(name)
+
 # --- The actual form ---
 with st.form("invoice_form"):
     colA, colB = st.columns([2, 1])
@@ -336,10 +356,10 @@ with st.form("invoice_form"):
 
     with colB:
         st.markdown("### Remittance")
-        bank = st.text_input("Bank", value="")
-        account_name = st.text_input("Account name", value="")
-        account_no = st.text_input("Account no", value="")
-        swift = st.text_input("SWIFT Code", value="")
+        bank = st.text_input("Bank", value=previous_data.get("bank", ""))
+        account_name = st.text_input("Account name", value=previous_data.get("account_name", ""))
+        account_no = st.text_input("Account no", value=previous_data.get("account_no", ""))
+        swift = st.text_input("SWIFT Code", value=previous_data.get("swift", ""))
 
         st.markdown("### Template preview & controls")
         st.markdown(f"**Current template:** {template_choice}")
@@ -489,7 +509,7 @@ st.markdown(
     """
     ---
     <div style='text-align:center; color:#7c7368; font-size:13px;'>
-        <b>Paperbean</b> • v3.3.2 — A soft & tidy invoice maker<br>
+        <b>Paperbean</b> • v3.5.0 — A soft & tidy invoice maker<br>
         © 2025 Paperbean — handcrafted utility for thoughtful creators.
     </div>
     """,
