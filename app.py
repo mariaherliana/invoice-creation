@@ -355,19 +355,22 @@ with st.form("invoice_form"):
             )
 
     with colB:
+        st.markdown("### Vendor / Issuer")
+        vendor_name = st.text_input("Vendor name", value="")
+        vendor_address = st.text_area("Vendor address", value="")
+    
+        # Pull last remittance data for this vendor (if exists)
+        previous_data = get_last_remittance(vendor_name) if vendor_name else {}
+    
         st.markdown("### Remittance")
         bank = st.text_input("Bank", value=previous_data.get("bank", ""))
         account_name = st.text_input("Account name", value=previous_data.get("account_name", ""))
         account_no = st.text_input("Account no", value=previous_data.get("account_no", ""))
         swift = st.text_input("SWIFT Code", value=previous_data.get("swift", ""))
-
+    
         st.markdown("### Template preview & controls")
         st.markdown(f"**Current template:** {template_choice}")
         save_pdf = st.checkbox("Save PDF to server & log invoice", value=True)
-
-        st.markdown("### Vendor / Issuer")
-        vendor_name = st.text_input("Vendor name", value="")
-        vendor_address = st.text_area("Vendor address", value="")
 
     # ✅ Keep this button inside the `with st.form()` block
     submit = st.form_submit_button("Generate Invoice")
