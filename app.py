@@ -311,8 +311,8 @@ with st.form("invoice_form"):
         invoice_date = st.date_input("Invoice date", value=datetime.today().date())
         due_add_days = st.selectbox("Due date offset", [7, 14, 30], index=0)
         due_date = st.date_input("Due date", value=(invoice_date + timedelta(days=due_add_days)))
+
         st.markdown("**Itemized list**")
-        # Manage simple dynamic list using session_state
         if "items" not in st.session_state:
             st.session_state.items = [{"name":"Retainer Fee for September 2025","desc":"","amount":5000000}]
         items = st.session_state.items
@@ -324,9 +324,12 @@ with st.form("invoice_form"):
             if len(items) > 1:
                 items.pop()
 
-        st.button("Add item", on_click=add_item)
-        st.button("Remove last item", on_click=remove_last)
-        # render items editable
+        colAdd, colRemove = st.columns(2)
+        with colAdd:
+            st.button("Add item", on_click=add_item)
+        with colRemove:
+            st.button("Remove last item", on_click=remove_last)
+
         for i, it in enumerate(items):
             st.markdown(f"**Item {i+1}**")
             it["name"] = st.text_input(f"Item name {i+1}", value=it.get("name",""), key=f"name_{i}")
@@ -339,12 +342,14 @@ with st.form("invoice_form"):
         account_name = st.text_input("Account name", value=name)
         account_no = st.text_input("Account no", value="5385153306")
         swift = st.text_input("SWIFT Code", value="CENAIDJA")
+
         st.markdown("### Template preview & controls")
         st.markdown(f"**Current template:** {template_choice}")
         st.markdown("Choose whether to save invoice PDF & record after generating.")
         save_pdf = st.checkbox("Save PDF to server & log invoice", value=True)
-        st.markdown("---")
-        submit = st.form_submit_button("Generate Invoice")
+
+    # ✅ Submit button now here, outside the columns but inside the form
+    submit = st.form_submit_button("Generate Invoice")
 
     # end form columns
 
