@@ -328,7 +328,7 @@ with st.form("invoice_form"):
             it["amount"] = st.number_input(
                 f"Amount (Rp) {i+1}",
                 min_value=0,
-                value=int(it.get("amount", 0)),
+                value=int(float(it.get("amount") or 0)),
                 step=1000,
                 key=f"amt_{i}"
             )
