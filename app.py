@@ -87,17 +87,23 @@ def fetch_history(limit=100):
     return res.data or []
 
 def get_last_remittance(name: str):
-    c.execute(
-        "SELECT bank, account_name, account_no, swift FROM invoices WHERE name = ? ORDER BY created_at DESC LIMIT 1",
-        (name,)
+    if not name:
+        return {}
+    res = (
+        supabase.table("invoices")
+        .select("bank, account_name, account_no, swift")
+        .eq("name", name)
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
     )
-    row = c.fetchone()
-    if row:
+    if res.data:
+        row = res.data[0]
         return {
-            "bank": row[0],
-            "account_name": row[1],
-            "account_no": row[2],
-            "swift": row[3],
+            "bank": row.get("bank", ""),
+            "account_name": row.get("account_name", ""),
+            "account_no": row.get("account_no", ""),
+            "swift": row.get("swift", ""),
         }
     return {}
 
