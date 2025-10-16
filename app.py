@@ -87,7 +87,6 @@ def fetch_history(limit=100):
     return res.data or []
 
 def get_last_remittance(name: str):
-    c = conn.cursor()
     c.execute(
         "SELECT bank, account_name, account_no, swift FROM invoices WHERE name = ? ORDER BY created_at DESC LIMIT 1",
         (name,)
