@@ -17,8 +17,9 @@ from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 from io import BytesIO
 import base64
-from supabase import create_client
+from supabase import create_client, Client
 import os
+from supabase.lib.storage_client import StorageException
 
 # -----------------------
 # Helpers & persistence
@@ -421,6 +422,17 @@ if submit:
 
     pdf_filename = f"{invoice_no.replace('/', '-')}.pdf"
     pdf_bytes = create_pdf_bytes(data, tpl_key)
+    
+    try:
+        # Upload PDF bytes to Supabase Storage bucket
+        res = supabase.storage.from_("invoices").upload(pdf_filename, pdf_bytes)
+        # If it already exists, this raises StorageException unless you allow overwrite:
+        # supabase.storage.from_("invoices").upload(pdf_filename, pdf_bytes, {"upsert": True})
+    
+        pdf_url = supabase.storage.from_("invoices").get_public_url(pdf_filename)
+    except StorageException as e:
+        st.error(f"Failed to upload PDF: {e}")
+        pdf_url = None
     
     # Upload PDF to Supabase Storage bucket
     res = supabase.storage.from_("invoices").upload(pdf_filename, pdf_bytes)
