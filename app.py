@@ -3,25 +3,22 @@
 Streamlit invoice maker
 - 3 templates (Cream Minimalist, Playful Pastel, Modern Monochrome)
 - Auto invoice numbering per person with logs in SQLite
-- Save PDF files to ./invoices and show history with download links
+- Save PDF files to ./invoices and show history & download links
 - Cream theme UI touches
 """
 
 import streamlit as st
 from datetime import datetime, timedelta
 import sqlite3
-import os
 from pathlib import Path
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 from io import BytesIO
-import math
-import textwrap
 
 # -----------------------
-# Helpers
+# Helpers & persistence
 # -----------------------
 
 DB_PATH = "invoices.db"
@@ -105,10 +102,6 @@ def fetch_history(limit=100):
 # -----------------------
 
 def draw_wrapped_string(cnv, text, x, y, max_width, leading=12):
-    """
-    Draw text wrapped to fit max_width on canvas `cnv` starting at x, y (from top).
-    returns new y position after drawing.
-    """
     from reportlab.pdfbase.pdfmetrics import stringWidth
     lines = []
     words = text.split()
@@ -128,50 +121,37 @@ def draw_wrapped_string(cnv, text, x, y, max_width, leading=12):
     return y
 
 def create_pdf_bytes(data: dict, template: str) -> bytes:
-    """
-    data: dict containing:
-      - invoice_no, invoice_date (datetime), due_date (datetime), bill_to, line_items(list of dict{name,desc,amount}),
-      - remittance dict(bank, account_name, account_no, swift)
-    template: one of 'cream', 'pastel', 'mono'
-    """
     buffer = BytesIO()
     cnv = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
-
-    # Margins
     left = 20 * mm
     right = 20 * mm
     top = height - 20 * mm
     usable_width = width - left - right
 
-    # Colors per template
     if template == "cream":
-        accent = colors.HexColor("#9aa494")  # muted sage
+        accent = colors.HexColor("#9aa494")
         text_color = colors.HexColor("#5c4a3d")
         header_bg = colors.HexColor("#f6efe8")
     elif template == "pastel":
-        accent = colors.HexColor("#f2c6d2")  # pastel pink (used sparingly)
+        accent = colors.HexColor("#f2c6d2")
         text_color = colors.HexColor("#5f4d7a")
         header_bg = colors.HexColor("#f7f3ff")
-    else:  # mono
+    else:
         accent = colors.HexColor("#2b6f77")
         text_color = colors.HexColor("#222222")
         header_bg = colors.HexColor("#f7f7f7")
 
-    # Header
     cnv.setFillColor(header_bg)
     cnv.rect(left, top - 30 * mm, usable_width, 30 * mm, fill=True, stroke=False)
-
     cnv.setFillColor(text_color)
     cnv.setFont("Helvetica-Bold", 18)
     cnv.drawString(left + 6 * mm, top - 10 * mm, "INVOICE")
-
     cnv.setFont("Helvetica", 10)
     cnv.drawString(left + 6 * mm, top - 16 * mm, f"Invoice No. : {data['invoice_no']}")
     cnv.drawString(left + 6 * mm, top - 21 * mm, f"Invoice Date : {data['invoice_date'].strftime('%d-%b-%Y')}")
     cnv.drawString(left + 6 * mm, top - 26 * mm, f"Due Date : {data['due_date'].strftime('%d-%b-%Y')}")
 
-    # Bill To
     cnv.setFont("Helvetica-Bold", 11)
     cnv.drawString(left, top - 42 * mm, "BILL TO:")
     cnv.setFont("Helvetica", 10)
@@ -182,23 +162,19 @@ def create_pdf_bytes(data: dict, template: str) -> bytes:
         cnv.drawString(left, y, data['bill_address'])
         y -= 6 * mm
 
-    # Line items header
     items_top = top - 70 * mm
     cnv.setStrokeColor(accent)
     cnv.setLineWidth(0.5)
     cnv.line(left, items_top, left + usable_width, items_top)
 
-    # Column headings
     col1_x = left
-    col2_x = left + usable_width * 0.55
-    col3_x = left + usable_width * 0.85
+    col3_x = left + usable_width - 6 * mm
 
     cnv.setFont("Helvetica-Bold", 10)
     cnv.drawString(col1_x, items_top - 8 * mm, "No")
     cnv.drawString(col1_x + 8 * mm, items_top - 8 * mm, "Item Description")
     cnv.drawString(col3_x - 18 * mm, items_top - 8 * mm, "Amount (Rp)")
 
-    # Items
     cnv.setFont("Helvetica", 10)
     y = items_top - 16 * mm
     idx = 1
@@ -209,18 +185,16 @@ def create_pdf_bytes(data: dict, template: str) -> bytes:
             y = height - 40 * mm
         cnv.drawString(col1_x, y, str(idx))
         draw_wrapped_string(cnv, f"{it.get('name','')} - {it.get('desc','')}", col1_x + 8 * mm, y + 2, max_width=(usable_width * 0.65))
-        amount_text = f"{it.get('amount', 0):,.0f}"
+        amount_text = f"{float(it.get('amount', 0)):,.0f}"
         cnv.drawRightString(left + usable_width - 6 * mm, y, amount_text)
         y -= 8 * mm
         idx += 1
 
-    # Totals
     y -= 6 * mm
     cnv.setFont("Helvetica-Bold", 11)
-    cnv.drawRightString(left + usable_width - 6 * mm, y, f"TOTAL (Rp {data['total']:,.0f})")
+    cnv.drawRightString(left + usable_width - 6 * mm, y, f"TOTAL (Rp {float(data['total']):,.0f})")
     y -= 10 * mm
 
-    # Remittance
     cnv.setFont("Helvetica-Bold", 10)
     cnv.drawString(left, y, "REMITTANCE INFORMATION")
     cnv.setFont("Helvetica", 9)
@@ -235,7 +209,6 @@ def create_pdf_bytes(data: dict, template: str) -> bytes:
     cnv.drawString(left, y, f"SWIFT Code : {rem.get('swift','')}")
     y -= 10 * mm
 
-    # Footer small watermark text
     cnv.setFont("Helvetica-Oblique", 8)
     cnv.setFillColor(colors.grey)
     cnv.drawString(left, 18 * mm, "Generated by Streamlit Invoice Maker")
@@ -251,31 +224,21 @@ def create_pdf_bytes(data: dict, template: str) -> bytes:
 
 st.set_page_config(page_title="Invoice Maker", layout="wide")
 
-# Minimal cream theme injection (Streamlit's CSS)
+# Simple cream-ish styling
 st.markdown(
     """
     <style>
-    .reportview-container {
-        background: #fbf7f3;
-    }
-    .stApp {
-        background: linear-gradient(180deg, #fbf7f3 0%, #fff 100%);
-    }
-    .invoice-card {
-        background: #fffdfa;
-        border-radius: 12px;
-        padding: 16px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    }
+    .stApp { background: linear-gradient(180deg,#fbf7f3 0%,#fff 100%); }
     .small-muted { color: #6b6b6b; font-size: 12px; }
     </style>
-    """, unsafe_allow_html=True
+    """,
+    unsafe_allow_html=True
 )
 
 st.title("Invoice Maker — soft & tidy")
 st.caption("Cream theme • 3 templates • automatic invoice numbers • history & PDF download")
 
-# Side: options and history
+# Sidebar: options & recent history
 with st.sidebar:
     st.header("Options & history")
     template_choice = st.selectbox("Invoice template", ["Cream Minimalist", "Playful Pastel", "Modern Monochrome"])
@@ -284,29 +247,27 @@ with st.sidebar:
     hist = fetch_history(10)
     if hist:
         for row in hist:
-            iid, name, initials, seq, invoice_no, invoice_date, due_date, tpl, total, pdf_path, created_at = row
-            created_at_display = created_at.split(".")[0] if created_at else ""
+            iid, name_db, initials, seq, invoice_no, invoice_date, due_date, tpl, total_db, pdf_path, created_at = row
             col1, col2 = st.columns([3,1])
             with col1:
-                st.markdown(f"**{invoice_no}** — {name}  ")
-                st.markdown(f"<div class='small-muted'>{invoice_date[:10]} • {tpl} • Rp {total:,.0f}</div>", unsafe_allow_html=True)
+                st.markdown(f"**{invoice_no}** — {name_db}")
+                st.markdown(f"<div class='small-muted'>{invoice_date[:10]} • {tpl} • Rp {total_db:,.0f}</div>", unsafe_allow_html=True)
             with col2:
-                # Provide download if file exists
                 p = Path(pdf_path)
                 if p.exists():
                     with open(p, "rb") as f:
-                        data = f.read()
-                    st.download_button("⬇️", data, file_name=p.name, key=f"dl_{iid}", use_container_width=True)
+                        raw = f.read()
+                    st.download_button("⬇️", raw, file_name=p.name, key=f"dl_{iid}", use_container_width=True)
                 else:
                     st.write("—")
 
 st.markdown("## Create an invoice")
 
-# --- Manage line items (outside the form, safe for callbacks) ---
+# -----------------------
+# Item list controls (outside form)
+# -----------------------
 if "items" not in st.session_state or not isinstance(st.session_state.items, list):
-    st.session_state.items = [
-        {"name": "Retainer Fee", "desc": "", "amount": 5000000}
-    ]
+    st.session_state.items = [{"name": "Retainer Fee", "desc": "", "amount": 5000000}]
 
 def add_item():
     st.session_state.items.append({"name": "New item", "desc": "", "amount": 0})
@@ -315,7 +276,6 @@ def remove_last():
     if len(st.session_state.items) > 1:
         st.session_state.items.pop()
 
-st.write("### Item list controls")
 col_add, col_remove = st.columns(2)
 with col_add:
     st.button("➕ Add item", on_click=add_item)
@@ -324,7 +284,9 @@ with col_remove:
 
 st.markdown("---")
 
-# --- The actual form ---
+# -----------------------
+# The form (must contain the submit button)
+# -----------------------
 with st.form("invoice_form"):
     colA, colB = st.columns([2, 1])
 
@@ -336,10 +298,11 @@ with st.form("invoice_form"):
         due_date = st.date_input("Due date", value=(invoice_date + timedelta(days=due_add_days)))
 
         st.markdown("**Itemized list**")
-        items = st.session_state.items
-        for i, it in enumerate(items):
+        # expose editable fields for each item (safe: keys unique)
+        for i, it in enumerate(st.session_state.items):
             it["name"] = st.text_input(f"Item name {i+1}", value=it.get("name", ""), key=f"name_{i}")
             it["desc"] = st.text_input(f"Description {i+1}", value=it.get("desc", ""), key=f"desc_{i}")
+            # number_input returns a number; we keep it as numeric in session_state
             it["amount"] = st.number_input(
                 f"Amount (Rp) {i+1}",
                 min_value=0,
@@ -359,24 +322,38 @@ with st.form("invoice_form"):
         st.markdown(f"**Current template:** {template_choice}")
         save_pdf = st.checkbox("Save PDF to server & log invoice", value=True)
 
-    # ✅ Submit button must be indented at the same level as the column blocks
+    # submit must be inside the form block at this indentation level
     submit = st.form_submit_button("Generate Invoice")
 
-    # end form columns
-
-# On submit: compute invoice number, create PDF, show preview and download
+# -----------------------
+# On submit: gather data, create PDF, save & show preview
+# -----------------------
 if submit:
-    # Build initials and seq
-    name_clean = name.strip()
+    # normalize items list: ensure list of dicts
+    items = st.session_state.get("items", [])
+    if not isinstance(items, list):
+        items = []
+
+    # ensure numeric amounts
+    cleaned_items = []
+    for it in items:
+        if not isinstance(it, dict):
+            continue
+        amt = it.get("amount", 0)
+        try:
+            amt = float(amt)
+        except Exception:
+            amt = 0.0
+        cleaned_items.append({"name": it.get("name", ""), "desc": it.get("desc", ""), "amount": amt})
+
+    total = sum(it["amount"] for it in cleaned_items)
+
+    name_clean = (name or "").strip()
     initials = make_initials(name_clean)
     inv_dt = datetime.combine(invoice_date, datetime.min.time())
     seq = get_next_sequence(initials, inv_dt.year)
     invoice_no = build_invoice_number(initials, seq, inv_dt)
 
-    # compute total
-    total = sum(float(it.get("amount", 0)) for it in st.session_state.get("items", []) if isinstance(it, dict))
-
-    # chosen template key map
     tpl_map = {
         "Cream Minimalist": "cream",
         "Playful Pastel": "pastel",
@@ -384,14 +361,13 @@ if submit:
     }
     tpl_key = tpl_map.get(template_choice, "cream")
 
-    # prepare data for PDF and preview
     data = {
         "invoice_no": invoice_no,
         "invoice_date": inv_dt,
         "due_date": datetime.combine(due_date, datetime.min.time()),
-        "bill_to": name_clean,
+        "bill_to": name_clean or "Unnamed",
         "bill_address": bill_address,
-        "items": st.session_state.items,
+        "items": cleaned_items,
         "total": total,
         "remittance": {
             "bank": bank,
@@ -401,32 +377,28 @@ if submit:
         }
     }
 
-    # Make PDF bytes
     try:
         pdf_bytes = create_pdf_bytes(data, tpl_key)
     except Exception as e:
         st.error(f"PDF generation failed: {e}")
         st.stop()
 
-    # Save PDF file if desired
     pdf_filename = f"{invoice_no.replace('/','-')}.pdf"
     pdf_path = INVOICE_DIR / pdf_filename
     if save_pdf:
         with open(pdf_path, "wb") as f:
             f.write(pdf_bytes)
-        # Save DB record
-        save_invoice_record(name_clean, initials, seq, invoice_no, inv_dt, datetime.combine(due_date, datetime.min.time()), template_choice, total, pdf_path)
+        save_invoice_record(name_clean, initials, seq, invoice_no, inv_dt, datetime.combine(due_date, datetime.min.time()), template_choice, float(total), pdf_path)
         st.success(f"Saved invoice {invoice_no} and logged it.")
 
-    # Preview area
+    # Preview + download button
     st.markdown("### Preview")
     colp1, colp2 = st.columns([2,1])
     with colp1:
-        # Show a small embedded preview (pdf blob as download and link)
         st.write(f"**{invoice_no}** — {name_clean}")
         st.write(f"Date: {invoice_date.strftime('%d-%b-%Y')}, Due: {due_date.strftime('%d-%b-%Y')}")
         st.write("Items:")
-        for i, it in enumerate(st.session_state.items, 1):
+        for i, it in enumerate(cleaned_items, 1):
             st.write(f"{i}. {it['name']} — {it.get('desc','')} — Rp {int(it['amount']):,}")
         st.write(f"**TOTAL: Rp {int(total):,}**")
         st.write("Remittance:")
@@ -436,16 +408,17 @@ if submit:
         st.download_button("Download PDF", data=pdf_bytes, file_name=pdf_filename, mime="application/pdf")
 
     st.markdown("---")
-    st.info("If you want different styling for the printable PDF later, we can extend the PDF renderer to place logos, use different fonts, or render HTML + headless conversion.")
+    st.info("If you want prettier PDF styling (fonts, logos), we can switch to HTML->PDF later.")
 
-# Small footer / hints
+# -----------------------
+# Footer notes
+# -----------------------
 st.markdown(
     """
     ---
     **Notes & behavior**
     - Invoice number format: `INITIALS/###/MONTH_ROMAN/YEAR` (e.g. `MH/002/XI/2025`).
     - Sequence increments per `INITIALS` and `YEAR`. Saved invoices are stored in `./invoices` and logged in `invoices.db`.
-    - The PDF renderer uses `reportlab` – modest but reliable. We can upgrade to a prettier HTML->PDF flow later.
+    - Use the Add/Remove buttons above the form to change item count; they are intentionally outside the form (Streamlit form rules).
     """
 )
-
