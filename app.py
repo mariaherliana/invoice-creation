@@ -293,24 +293,23 @@ with st.sidebar:
     hist = fetch_history(10)
     if hist:
         for row in hist:
-            iid, name_db, initials, seq, invoice_no, invoice_date, due_date, tpl, total_db, pdf_path, created_at = row, bank, account_name, account_no, swift
             col1, col2 = st.columns([3,1])
             with col1:
-                st.markdown(f"**{invoice_no}** — {name_db}")
+                st.markdown(f"**{row['invoice_no']}** — {row['name']}")
                 try:
-                    total_display = f"Rp {float(total_db):,.0f}"
+                    total_display = f"Rp {float(row.get('total', 0)):,}"
                 except Exception:
                     total_display = "Rp —"
                 st.markdown(
-                    f"<div class='small-muted'>{invoice_date[:10]} • {tpl} • {total_display}</div>",
+                    f"<div class='small-muted'>{row['invoice_date'][:10]} • {row['template']} • {total_display}</div>",
                     unsafe_allow_html=True,
                 )
             with col2:
-                p = Path(pdf_path)
+                p = Path(row.get('pdf_path',''))
                 if p.exists():
                     with open(p, "rb") as f:
                         raw = f.read()
-                    st.download_button("⬇️", raw, file_name=p.name, key=f"dl_{iid}", use_container_width=True)
+                    st.download_button("⬇️", raw, file_name=p.name, key=f"dl_{row['id']}", use_container_width=True)
                 else:
                     st.write("—")
 
