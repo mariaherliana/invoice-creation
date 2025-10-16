@@ -78,7 +78,7 @@ def save_invoice_record(name, initials, seq, invoice_no, invoice_date, due_date,
         "due_date": due_date.isoformat(),
         "template": template,
         "total": total,
-        "pdf_path": str(pdf_path),
+        "pdf_path": str(pdf_url),
     }
     supabase.table("invoices").insert(data).execute()
 
@@ -419,8 +419,14 @@ if submit:
         st.error(f"PDF generation failed: {e}")
         st.stop()
 
-    pdf_filename = f"{invoice_no.replace('/','-')}.pdf"
-    pdf_path = INVOICE_DIR / pdf_filename
+    pdf_filename = f"{invoice_no.replace('/', '-')}.pdf"
+    pdf_bytes = create_pdf_bytes(data, tpl_key)
+    
+    # Upload PDF to Supabase Storage bucket
+    res = supabase.storage.from_("invoices").upload(pdf_filename, pdf_bytes)
+    if res.get("error"):
+        st.error(f"Failed to upload PDF: {res['error']['message']}")
+    pdf_url = supabase.storage.from_("invoices").get_public_url(pdf_filename)
     if save_pdf:
         with open(pdf_path, "wb") as f:
             f.write(pdf_bytes)
