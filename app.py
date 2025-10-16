@@ -356,7 +356,7 @@ def reset_form():
         if k.startswith(("name_", "desc_", "amt_")) or k in ["line_items"]:
             del st.session_state[k]
     st.session_state.line_items = [{"name": "Retainer Fee", "desc": "", "amount": 5000000}]
-    st.experimental_rerun()
+    st.rerun()
 
 st.button("🔄 Reset Form", on_click=reset_form)
 
