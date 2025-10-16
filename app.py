@@ -302,10 +302,10 @@ with st.sidebar:
 
 st.markdown("## Create an invoice")
 
-# --- Manage line items outside the form (safe for callbacks) ---
+# --- Manage line items (outside the form, safe for callbacks) ---
 if "items" not in st.session_state or not isinstance(st.session_state.items, list):
     st.session_state.items = [
-        {"name": "Retainer Fee for September 2025", "desc": "", "amount": 5000000}
+        {"name": "Retainer Fee", "desc": "", "amount": 5000000}
     ]
 
 def add_item():
@@ -336,7 +336,8 @@ with st.form("invoice_form"):
         due_date = st.date_input("Due date", value=(invoice_date + timedelta(days=due_add_days)))
 
         st.markdown("**Itemized list**")
-        for i, it in enumerate(st.session_state.items):
+        items = st.session_state.items
+        for i, it in enumerate(items):
             it["name"] = st.text_input(f"Item name {i+1}", value=it.get("name", ""), key=f"name_{i}")
             it["desc"] = st.text_input(f"Description {i+1}", value=it.get("desc", ""), key=f"desc_{i}")
             it["amount"] = st.number_input(
@@ -358,7 +359,7 @@ with st.form("invoice_form"):
         st.markdown(f"**Current template:** {template_choice}")
         save_pdf = st.checkbox("Save PDF to server & log invoice", value=True)
 
-    # ✅ Only one submit button — Streamlit detects this correctly
+    # ✅ Submit button must be indented at the same level as the column blocks
     submit = st.form_submit_button("Generate Invoice")
 
     # end form columns
