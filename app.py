@@ -272,7 +272,14 @@ with st.sidebar:
             col1, col2 = st.columns([3,1])
             with col1:
                 st.markdown(f"**{invoice_no}** — {name_db}")
-                st.markdown(f"<div class='small-muted'>{invoice_date[:10]} • {tpl} • Rp {total_db:,.0f}</div>", unsafe_allow_html=True)
+                try:
+                    total_display = f"Rp {float(total_db):,.0f}"
+                except Exception:
+                    total_display = "Rp —"
+                st.markdown(
+                    f"<div class='small-muted'>{invoice_date[:10]} • {tpl} • {total_display}</div>",
+                    unsafe_allow_html=True,
+                )
             with col2:
                 p = Path(pdf_path)
                 if p.exists():
