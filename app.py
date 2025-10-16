@@ -411,7 +411,7 @@ if submit:
         "invoice_no": invoice_no,
         "invoice_date": inv_dt,
         "due_date": datetime.combine(due_date, datetime.min.time()),
-        "bill_to": name_clean or "Unnamed",
+        "bill_to": vendor_clean or "Unnamed",
         "bill_address": bill_address,
         "items": cleaned_items,
         "total": total,
@@ -453,7 +453,7 @@ if submit:
     st.markdown("### Preview")
     colp1, colp2 = st.columns([2,1])
     with colp1:
-        st.write(f"**{invoice_no}** — {name_clean}")
+        st.write(f"**{invoice_no}** — {vendor_clean}")
         st.write(f"Date: {invoice_date.strftime('%d-%b-%Y')}, Due: {due_date.strftime('%d-%b-%Y')}")
         st.write("Items:")
         for i, it in enumerate(cleaned_items, 1):
