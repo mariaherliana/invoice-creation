@@ -411,7 +411,7 @@ if submit:
         "invoice_no": invoice_no,
         "invoice_date": inv_dt,
         "due_date": datetime.combine(due_date, datetime.min.time()),
-        "bill_to": vendor_clean or "Unnamed",
+        "bill_to": name or "Unnamed",
         "bill_address": bill_address,
         "items": cleaned_items,
         "total": total,
