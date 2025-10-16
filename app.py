@@ -364,24 +364,24 @@ st.button("🔄 Reset Form", on_click=reset_form)
 # On submit: gather data, create PDF, save & show preview
 # -----------------------
 if submit:
-    # normalize items list: ensure list of dicts
-    items = st.session_state.get("items", [])
-    if not isinstance(items, list):
-        items = []
+    # 1️⃣ Sync all item inputs from widget state
+    updated_items = []
+    for i in range(len(st.session_state.line_items)):
+        name_key = f"name_{i}"
+        desc_key = f"desc_{i}"
+        amt_key = f"amt_{i}"
+        updated_items.append({
+            "name": st.session_state.get(name_key, ""),
+            "desc": st.session_state.get(desc_key, ""),
+            "amount": float(st.session_state.get(amt_key, 0))
+        })
+    st.session_state.line_items = updated_items
 
-    # ensure numeric amounts
-    cleaned_items = []
-    for it in items:
-        if not isinstance(it, dict):
-            continue
-        amt = it.get("amount", 0)
-        try:
-            amt = float(amt)
-        except Exception:
-            amt = 0.0
-        cleaned_items.append({"name": it.get("name", ""), "desc": it.get("desc", ""), "amount": amt})
+    # 2️⃣ Clean/summarize for safety
+    cleaned_items = [it for it in st.session_state.line_items if it.get("name")]
 
-    total = sum(it["amount"] for it in cleaned_items)
+    # 3️⃣ Compute total from the cleaned list
+    total = sum(float(it.get("amount", 0)) for it in cleaned_items)
 
     name_clean = (name or "").strip()
     initials = make_initials(name_clean)
