@@ -237,7 +237,7 @@ def create_pdf_bytes(data: dict, template: str) -> bytes:
 # Streamlit UI
 # -----------------------
 
-st.set_page_config(page_icon="🗒️🌱", page_title="Paperbean", layout="wide")
+st.set_page_config(page_icon="🌱", page_title="Paperbean", layout="wide")
 
 # Simple cream-ish styling
 st.markdown(
@@ -489,7 +489,7 @@ st.markdown(
     """
     ---
     <div style='text-align:center; color:#7c7368; font-size:13px;'>
-        <b>Paperbean</b> • v3.3.0 — A soft & tidy invoice maker<br>
+        <b>Paperbean</b> • v3.3.2 — A soft & tidy invoice maker<br>
         © 2025 Paperbean — handcrafted utility for thoughtful creators.
     </div>
     """,
