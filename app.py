@@ -353,8 +353,6 @@ with st.form("invoice_form"):
     with colB:
         st.markdown("### Vendor / Issuer")
         vendor_name = st.text_input("Vendor name", value="")
-        vendor_address = st.text_area("Vendor address", value="")
-    
         # Pull last remittance data for this vendor (if exists)
         previous_data = get_last_remittance(vendor_name) if vendor_name else {}
     
