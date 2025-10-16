@@ -129,17 +129,17 @@ def create_pdf_bytes(data: dict, template: str) -> bytes:
 
     # Colors per template
     if template == "cream":
-        accent = colors.HexColor("#9aa494")
-        text_color = colors.HexColor("#5c4a3d")
-        header_bg = colors.HexColor("#f6efe8")
+        accent = colors.HexColor("#795757")      # muted rose-brown for lines
+        text_color = colors.HexColor("#3B3030")  # deep brown text
+        header_bg = colors.HexColor("#FFF0D1")   # warm cream header
     elif template == "pastel":
-        accent = colors.HexColor("#f2c6d2")
-        text_color = colors.HexColor("#5f4d7a")
-        header_bg = colors.HexColor("#f7f3ff")
-    else:
-        accent = colors.HexColor("#2b6f77")
-        text_color = colors.HexColor("#222222")
-        header_bg = colors.HexColor("#f7f7f7")
+        accent = colors.HexColor("#D97D55")      # terracotta accent
+        text_color = colors.HexColor("#6FA4AF")  # gentle teal-gray text
+        header_bg = colors.HexColor("#F4E9D7")   # soft neutral header
+    else:  # mono
+        accent = colors.HexColor("#948979")      # soft taupe accent
+        text_color = colors.HexColor("#222831")  # charcoal text
+        header_bg = colors.HexColor("#DFD0B8")   # pale sand header
 
     # Header band
     cnv.setFillColor(header_bg)
@@ -489,7 +489,7 @@ st.markdown(
     """
     ---
     <div style='text-align:center; color:#7c7368; font-size:13px;'>
-        <b>Paperbean</b> • v3.0.0 — A soft & tidy invoice maker<br>
+        <b>Paperbean</b> • v3.3.0 — A soft & tidy invoice maker<br>
         © 2025 Paperbean — handcrafted utility for thoughtful creators.
     </div>
     """,
