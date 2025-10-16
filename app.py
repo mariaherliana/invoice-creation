@@ -263,19 +263,18 @@ with st.sidebar:
 
 st.markdown("## Create an invoice")
 
-# -----------------------
-# Item list controls (outside form)
-# -----------------------
-if "items" not in st.session_state or not isinstance(st.session_state.items, list):
-    st.session_state.items = [{"name": "Retainer Fee", "desc": "", "amount": 5000000}]
+# --- Manage line items (outside form) ---
+if "line_items" not in st.session_state or not isinstance(st.session_state.line_items, list):
+    st.session_state.line_items = [{"name": "Retainer Fee", "desc": "", "amount": 5000000}]
 
 def add_item():
-    st.session_state.items.append({"name": "New item", "desc": "", "amount": 0})
+    st.session_state.line_items.append({"name": "New item", "desc": "", "amount": 0})
 
 def remove_last():
-    if len(st.session_state.items) > 1:
-        st.session_state.items.pop()
+    if len(st.session_state.line_items) > 1:
+        st.session_state.line_items.pop()
 
+st.write("### Item list controls")
 col_add, col_remove = st.columns(2)
 with col_add:
     st.button("➕ Add item", on_click=add_item)
@@ -284,9 +283,7 @@ with col_remove:
 
 st.markdown("---")
 
-# -----------------------
-# The form (must contain the submit button)
-# -----------------------
+# --- The actual form ---
 with st.form("invoice_form"):
     colA, colB = st.columns([2, 1])
 
@@ -298,11 +295,9 @@ with st.form("invoice_form"):
         due_date = st.date_input("Due date", value=(invoice_date + timedelta(days=due_add_days)))
 
         st.markdown("**Itemized list**")
-        # expose editable fields for each item (safe: keys unique)
-        for i, it in enumerate(st.session_state.items):
+        for i, it in enumerate(st.session_state.line_items):
             it["name"] = st.text_input(f"Item name {i+1}", value=it.get("name", ""), key=f"name_{i}")
             it["desc"] = st.text_input(f"Description {i+1}", value=it.get("desc", ""), key=f"desc_{i}")
-            # number_input returns a number; we keep it as numeric in session_state
             it["amount"] = st.number_input(
                 f"Amount (Rp) {i+1}",
                 min_value=0,
@@ -322,7 +317,7 @@ with st.form("invoice_form"):
         st.markdown(f"**Current template:** {template_choice}")
         save_pdf = st.checkbox("Save PDF to server & log invoice", value=True)
 
-    # submit must be inside the form block at this indentation level
+    # ✅ Keep this button inside the `with st.form()` block
     submit = st.form_submit_button("Generate Invoice")
 
 # -----------------------
