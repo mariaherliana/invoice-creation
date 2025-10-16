@@ -380,22 +380,24 @@ with st.form("invoice_form"):
     submit = st.form_submit_button("Generate Invoice")
 
 def reset_form():
-    # Clear all line item inputs
+    # Clear line item inputs
     for i in range(len(st.session_state.line_items)):
         for prefix in ("name_", "desc_", "amt_"):
             key = f"{prefix}{i}"
             if key in st.session_state:
                 del st.session_state[key]
+
     # Reset line_items itself
     st.session_state.line_items = [{"name": "New item", "desc": "", "amount": 0}]
-    
+
     # Clear vendor and billing inputs
     for key in ("name", "bill_address", "vendor_name", "vendor_address", "bank", "account_name", "account_no", "swift"):
         if key in st.session_state:
             del st.session_state[key]
 
-    # Trigger rerun
-    st.rerun()  # safer than using a flag
+    # Do NOT delete these keys so the PDF preview & download remain
+    # st.session_state.pop("pdf_bytes", None)
+    # st.session_state.pop("pdf_filename", None)
 
 # -----------------------
 # On submit: gather data, create PDF, save & show preview
