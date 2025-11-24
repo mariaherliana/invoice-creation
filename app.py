@@ -289,29 +289,6 @@ with st.sidebar:
     st.header("Options & history")
     template_choice = st.selectbox("Invoice template", ["Cream Minimalist", "Playful Pastel", "Modern Monochrome"])
     st.markdown("---")
-    st.subheader("Recent invoices")
-    hist = fetch_history(10)
-    if hist:
-        for row in hist:
-            col1, col2 = st.columns([3,1])
-            with col1:
-                st.markdown(f"**{row['invoice_no']}** — {row['name']}")
-                try:
-                    total_display = f"Rp {float(row.get('total', 0)):,}"
-                except Exception:
-                    total_display = "Rp —"
-                st.markdown(
-                    f"<div class='small-muted'>{row['invoice_date'][:10]} • {row['template']} • {total_display}</div>",
-                    unsafe_allow_html=True,
-                )
-            with col2:
-                p = Path(row.get('pdf_path',''))
-                if p.exists():
-                    with open(p, "rb") as f:
-                        raw = f.read()
-                    st.download_button("⬇️", raw, file_name=p.name, key=f"dl_{row['id']}", use_container_width=True)
-                else:
-                    st.write("—")
 
 st.markdown("## Create an invoice")
 
