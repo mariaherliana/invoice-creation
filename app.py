@@ -83,6 +83,7 @@ def save_invoice_record(name, initials, seq, invoice_no, invoice_date, due_date,
         "account_name": account_name,
         "account_no": account_no,
         "swift": swift,
+        "currency": currency_symbol,
     }
     supabase.table("invoices").insert(data).execute()
 
@@ -209,7 +210,7 @@ def create_pdf_bytes(data: dict, template: str) -> bytes:
     cnv.setFont("Helvetica-Bold", 10)
     cnv.drawString(col1_x, items_top - 8 * mm, "No")
     cnv.drawString(col1_x + 8 * mm, items_top - 8 * mm, "Item Description")
-    cnv.drawString(col3_x - 18 * mm, items_top - 8 * mm, "Amount (Rp)")
+    cnv.drawString(col3_x - 18 * mm, items_top - 8 * mm, f"Amount ({data.get('currency_symbol', 'Rp')})")
 
     cnv.setFont("Helvetica", 10)
     y = items_top - 16 * mm
@@ -226,14 +227,23 @@ def create_pdf_bytes(data: dict, template: str) -> bytes:
             y + 2,
             max_width=(usable_width * 0.65),
         )
-        cnv.drawRightString(left + usable_width - 6 * mm, y, f"{it.get('amount', 0):,.0f}")
+        cnv.drawRightString(
+            left + usable_width - 6 * mm,
+            y,
+            f"{it.get('amount', 0):,.0f}"
+        )
         y -= 8 * mm
         idx += 1
 
     # Total
     y -= 6 * mm
     cnv.setFont("Helvetica-Bold", 11)
-    cnv.drawRightString(left + usable_width - 6 * mm, y, f"TOTAL (Rp {data['total']:,.0f})")
+    curr = data.get("currency_symbol", "Rp")
+    cnv.drawRightString(
+        left + usable_width - 6 * mm,
+        y,
+        f"TOTAL ({curr} {data['total']:,.0f})"
+    )
     y -= 10 * mm
 
     # Remittance
@@ -339,12 +349,21 @@ with st.form("invoice_form"):
         due_add_days = st.selectbox("Due date offset", [7, 14, 30], index=0)
         due_date = st.date_input("Due date", value=(invoice_date + timedelta(days=due_add_days)))
 
+        currency = st.selectbox(
+            "Currency",
+            ["IDR (Rp)", "USD ($)", "EUR (€)", "SGD (S$)", "GBP (£)"],
+            index=0
+        )
+        
+        # Extract symbol only (e.g. "Rp")
+        currency_symbol = currency.split("(")[1].replace(")", "")
+
         st.markdown("**Itemized list**")
         for i, it in enumerate(st.session_state.line_items):
             it["name"] = st.text_input(f"Item name {i+1}", value=it.get("name", ""), key=f"name_{i}")
             it["desc"] = st.text_input(f"Description {i+1}", value=it.get("desc", ""), key=f"desc_{i}")
             it["amount"] = st.number_input(
-                f"Amount (Rp) {i+1}",
+                f"Amount ({currency_symbol}) {i+1}",
                 min_value=0,
                 value=int(float(it.get("amount") or 0)),
                 step=1000,
@@ -416,6 +435,7 @@ if submit:
         "bill_address": bill_address,
         "items": cleaned_items,
         "total": total,
+        "currency_symbol": currency_symbol,
         "remittance": {
             "bank": bank,
             "account_name": account_name,
@@ -477,8 +497,8 @@ if submit:
         st.write(f"Date: {invoice_date.strftime('%d-%b-%Y')}, Due: {due_date.strftime('%d-%b-%Y')}")
         st.write("Items:")
         for i, it in enumerate(cleaned_items, 1):
-            st.write(f"{i}. {it['name']} — {it.get('desc','')} — Rp {int(it['amount']):,}")
-        st.write(f"**TOTAL: Rp {int(total):,}**")
+            st.write(f"{i}. {it['name']} — {it.get('desc','')} — {currency_symbol} {int(it['amount']):,}")
+        st.write(f"**TOTAL: {currency_symbol} {int(total):,}**")
         st.write("Remittance:")
         st.write(f"{bank} • {account_name} • {account_no} • SWIFT: {swift}")
 
