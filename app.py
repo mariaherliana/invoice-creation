@@ -301,7 +301,7 @@ with tab_po:
             "currency_symbol": currency_symbol
         }
 
-        pdf_bytes = create_pdf_bytes(data, tpl_key)
+        pdf_bytes = create_po_pdf_bytes(data, tpl_key)
         filename = f"{po_no.replace('/', '-')}.pdf"
 
         bucket = supabase.storage.from_("pos")
