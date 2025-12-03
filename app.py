@@ -226,6 +226,97 @@ tab_invoice, tab_po = st.tabs(["Invoice", "Purchase Order"])
 # =====================================================
 # PURCHASE ORDER TAB
 # =====================================================
+def create_po_pdf_bytes(data: dict, template: str) -> bytes:
+    """
+    Simple PO PDF renderer — mirrors invoice style but uses PO fields:
+    data should contain: po_no, po_date (datetime), vendor_name, vendor_address,
+                         issuer_name, issuer_address, items (list of {name,amount}),
+                         total, currency_symbol
+    """
+    buffer = BytesIO()
+    cnv = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+
+    left, right = 20 * mm, 20 * mm
+    top = height - 20 * mm
+    usable = width - left - right
+
+    # Colors per template (keep same palette mapping as invoice)
+    if template == "cream":
+        accent = colors.HexColor("#795757")
+        text_color = colors.HexColor("#3B3030")
+        header_bg = colors.HexColor("#FFF0D1")
+    elif template == "pastel":
+        accent = colors.HexColor("#D97D55")
+        text_color = colors.HexColor("#6FA4AF")
+        header_bg = colors.HexColor("#F4E9D7")
+    else:  # mono
+        accent = colors.HexColor("#948979")
+        text_color = colors.HexColor("#222831")
+        header_bg = colors.HexColor("#DFD0B8")
+
+    # Header band
+    cnv.setFillColor(header_bg)
+    cnv.rect(left, top - 30 * mm, usable, 30 * mm, fill=True, stroke=False)
+
+    cnv.setFillColor(text_color)
+    cnv.setFont("Helvetica-Bold", 18)
+    cnv.drawString(left + 6 * mm, top - 10 * mm, "PURCHASE ORDER")
+
+    cnv.setFont("Helvetica", 10)
+    cnv.drawString(left + 6 * mm, top - 17 * mm, f"PO No. : {data.get('po_no','')}")
+    po_date = data.get("po_date")
+    if isinstance(po_date, datetime):
+        cnv.drawString(left + 6 * mm, top - 23 * mm, f"PO Date : {po_date.strftime('%d-%b-%Y')}")
+    else:
+        cnv.drawString(left + 6 * mm, top - 23 * mm, f"PO Date : {str(po_date)}")
+
+    # Vendor (PO TO)
+    cnv.setFont("Helvetica-Bold", 11)
+    cnv.drawString(left, top - 40 * mm, "PO TO:")
+    cnv.setFont("Helvetica", 10)
+    cnv.drawString(left, top - 46 * mm, data.get("vendor_name", ""))
+    cnv.drawString(left, top - 52 * mm, data.get("vendor_address", ""))
+
+    # Issuer (Buyer)
+    cnv.setFont("Helvetica-Bold", 11)
+    cnv.drawString(left, top - 66 * mm, "ISSUED BY:")
+    cnv.setFont("Helvetica", 10)
+    cnv.drawString(left, top - 72 * mm, data.get("issuer_name", ""))
+    cnv.drawString(left, top - 78 * mm, data.get("issuer_address", ""))
+
+    # Items table header
+    items_top = top - 92 * mm
+    cnv.setStrokeColor(accent)
+    cnv.setLineWidth(0.5)
+    cnv.line(left, items_top, left + usable, items_top)
+
+    cnv.setFont("Helvetica-Bold", 10)
+    cnv.drawString(left, items_top - 8 * mm, "No")
+    cnv.drawString(left + 12 * mm, items_top - 8 * mm, "Item Description")
+    cnv.drawRightString(left + usable - 6 * mm, items_top - 8 * mm, f"Amount ({data.get('currency_symbol','Rp')})")
+
+    # Items
+    y = items_top - 16 * mm
+    cnv.setFont("Helvetica", 10)
+    for idx, it in enumerate(data.get("items", []), 1):
+        if y < 40 * mm:
+            cnv.showPage()
+            y = height - 40 * mm
+        cnv.drawString(left, y, str(idx))
+        cnv.drawString(left + 12 * mm, y, it.get("name", ""))
+        cnv.drawRightString(left + usable - 6 * mm, y, f"{int(it.get('amount',0)):,.0f}")
+        y -= 8 * mm
+
+    # Total
+    y -= 8 * mm
+    cnv.setFont("Helvetica-Bold", 11)
+    cnv.drawRightString(left + usable - 6 * mm, y, f"TOTAL ({data.get('currency_symbol','Rp')} {int(data.get('total',0)):,.0f})")
+
+    # Finish
+    cnv.save()
+    buffer.seek(0)
+    return buffer.read()
 
 with tab_po:
     st.header("Create a Purchase Order")
