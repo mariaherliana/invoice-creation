@@ -547,9 +547,9 @@ def remove_last():
 st.write("### Item list controls")
 col_add, col_remove = st.columns(2)
 with col_add:
-    st.button("➕ Add item", on_click=add_item)
+    st.button("➕ Add item", key="inv_add_item", on_click=add_item)
 with col_remove:
-    st.button("➖ Remove last item", on_click=remove_last)
+    st.button("➖ Remove last item", key="inv_remove_item", on_click=remove_last)
 
 st.markdown("---")
 
