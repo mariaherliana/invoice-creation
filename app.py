@@ -754,7 +754,7 @@ st.markdown(
     """
     ---
     <div style='text-align:center; color:#7c7368; font-size:13px;'>
-        <b>Paperbean</b> • v3.5.0 — A soft & tidy invoice maker<br>
+        <b>Paperbean</b> • v4.0.0 — A soft & tidy invoice maker<br>
         © 2025 Paperbean — handcrafted utility for thoughtful creators.
     </div>
     """,
