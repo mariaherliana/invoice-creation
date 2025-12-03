@@ -68,7 +68,11 @@ def build_invoice_number(initials: str, seq: int, dt: datetime):
     year = dt.year
     return f"{seq_s}/INV-{initials}/{roman}/{year}"
 
-def save_invoice_record(name, initials, seq, invoice_no, invoice_date, due_date, template, total, pdf_path):
+def save_invoice_record(
+    name, initials, seq, invoice_no, invoice_date,
+    due_date, template, total, pdf_path,
+    bank, account_name, account_no, swift, currency_symbol
+):
     data = {
         "name": name,
         "initials": initials,
@@ -78,7 +82,7 @@ def save_invoice_record(name, initials, seq, invoice_no, invoice_date, due_date,
         "due_date": due_date.isoformat(),
         "template": template,
         "total": total,
-        "pdf_path": str(pdf_url),
+        "pdf_path": pdf_path,
         "bank": bank,
         "account_name": account_name,
         "account_no": account_no,
@@ -111,6 +115,49 @@ def get_last_remittance(name: str):
             "swift": row.get("swift", ""),
         }
     return {}
+
+# -----------------------
+# PO Helpers
+# -----------------------
+
+def get_next_po_sequence(initials: str, year: int):
+    query = (
+        supabase.table("purchase_orders")
+        .select("seq, po_date")
+        .eq("initials", initials)
+        .execute()
+    )
+    rows = query.data
+    if not rows:
+        return 1
+    filtered = [r for r in rows if str(year) in (r["po_date"] or "")]
+    if not filtered:
+        return 1
+    return max(r["seq"] for r in filtered) + 1
+
+def build_po_number(initials: str, seq: int, dt: datetime):
+    seq_s = f"{seq:03d}"
+    roman = to_roman_month(dt)
+    year = dt.year
+    return f"{seq_s}/PO-{initials}/{roman}/{year}"
+
+def save_po_record(vendor_name, initials, seq, po_no, po_date,
+                   template, total, pdf_url, issuer_name, issuer_address,
+                   currency_symbol):
+    data = {
+        "vendor_name": vendor_name,
+        "initials": initials,
+        "seq": seq,
+        "po_no": po_no,
+        "po_date": po_date.isoformat(),
+        "template": template,
+        "total": total,
+        "pdf_url": pdf_url,
+        "issuer_name": issuer_name,
+        "issuer_address": issuer_address,
+        "currency": currency_symbol,
+    }
+    supabase.table("purchase_orders").insert(data).execute()
 
 # -----------------------
 # PDF generation using reportlab
@@ -268,6 +315,86 @@ def create_pdf_bytes(data: dict, template: str) -> bytes:
     buffer.seek(0)
     return buffer.read()
 
+def create_po_pdf_bytes(data: dict, template: str) -> bytes:
+    buffer = BytesIO()
+    cnv = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+
+    left, right = 20*mm, 20*mm
+    top = height - 20*mm
+    usable = width - left - right
+
+    # Colors follow same theme as invoice PDF
+    if template == "cream":
+        accent = colors.HexColor("#795757")
+        text_color = colors.HexColor("#3B3030")
+        header_bg = colors.HexColor("#FFF0D1")
+    elif template == "pastel":
+        accent = colors.HexColor("#D97D55")
+        text_color = colors.HexColor("#6FA4AF")
+        header_bg = colors.HexColor("#F4E9D7")
+    else:
+        accent = colors.HexColor("#948979")
+        text_color = colors.HexColor("#222831")
+        header_bg = colors.HexColor("#DFD0B8")
+
+    # Header
+    cnv.setFillColor(header_bg)
+    cnv.rect(left, top - 30*mm, usable, 30*mm, fill=True, stroke=False)
+
+    cnv.setFillColor(text_color)
+    cnv.setFont("Helvetica-Bold", 18)
+    cnv.drawString(left + 6*mm, top - 10*mm, "PURCHASE ORDER")
+
+    cnv.setFont("Helvetica", 10)
+    cnv.drawString(left + 6*mm, top - 17*mm, f"PO No. : {data['po_no']}")
+    cnv.drawString(left + 6*mm, top - 23*mm, f"PO Date : {data['po_date'].strftime('%d-%b-%Y')}")
+
+    # Vendor (PO TO)
+    cnv.setFont("Helvetica-Bold", 11)
+    cnv.drawString(left, top - 40*mm, "PO TO:")
+    cnv.setFont("Helvetica", 10)
+    cnv.drawString(left, top - 46*mm, data["vendor_name"])
+    cnv.drawString(left, top - 52*mm, data["vendor_address"])
+
+    # Issuer (Buyer)
+    cnv.setFont("Helvetica-Bold", 11)
+    cnv.drawString(left, top - 66*mm, "ISSUED BY:")
+    cnv.setFont("Helvetica", 10)
+    cnv.drawString(left, top - 72*mm, data["issuer_name"])
+    cnv.drawString(left, top - 78*mm, data["issuer_address"])
+
+    # Items
+    items_top = top - 90*mm
+    cnv.setStrokeColor(accent)
+    cnv.line(left, items_top, left + usable, items_top)
+
+    cnv.setFont("Helvetica-Bold", 10)
+    cnv.drawString(left, items_top - 10, "No")
+    cnv.drawString(left + 20*mm, items_top - 10, "Item")
+    cnv.drawRightString(left + usable - 6*mm, items_top - 10, "Amount")
+
+    y = items_top - 22
+    cnv.setFont("Helvetica", 10)
+
+    for i, it in enumerate(data["items"], 1):
+        cnv.drawString(left, y, str(i))
+        cnv.drawString(left + 20*mm, y, it["name"])
+        cnv.drawRightString(left + usable - 6*mm, y, f"{it['amount']:,.0f}")
+        y -= 12
+
+    # TOTAL
+    cnv.setFont("Helvetica-Bold", 12)
+    cnv.drawRightString(
+        left + usable - 6*mm,
+        y - 15,
+        f"TOTAL ({data['currency_symbol']} {data['total']:,.0f})"
+    )
+
+    cnv.save()
+    buffer.seek(0)
+    return buffer.read()
+
 # -----------------------
 # Streamlit UI
 # -----------------------
@@ -293,6 +420,110 @@ st.markdown(
     unsafe_allow_html=True
 )
 st.caption("Cream theme • 3 templates • automatic invoice numbers • history & PDF download")
+tab_invoice, tab_po = st.tabs(["Invoice", "Purchase Order"])
+with tab_po:
+    st.header("Create a Purchase Order")
+
+    # PO item list
+    if "po_items" not in st.session_state:
+        st.session_state.po_items = [{"name": "New item", "amount": 0}]
+
+    def po_add_item():
+        st.session_state.po_items.append({"name": "New item", "amount": 0})
+
+    def po_remove_item():
+        if len(st.session_state.po_items) > 1:
+            st.session_state.po_items.pop()
+
+    colA, colB = st.columns([2,1])
+
+    with colA:
+        vendor_name = st.text_input("PO To (Vendor)")
+        vendor_address = st.text_area("Vendor Address")
+
+        issuer_name = st.text_input("Issued by (Your name/company)")
+        issuer_address = st.text_area("Issuer Address")
+
+        po_date = st.date_input("PO Date", value=datetime.today().date())
+
+        currency = st.selectbox("Currency", ["IDR (Rp)", "USD ($)", "EUR (€)", "SGD (S$)", "GBP (£)"])
+        currency_symbol = currency.split("(")[1].replace(")", "")
+
+        st.write("### Items")
+        for i, it in enumerate(st.session_state.po_items):
+            it["name"] = st.text_input(f"Item {i+1}", it["name"], key=f"po_name_{i}")
+            it["amount"] = st.number_input(f"Amount {i+1}", 0, value=int(it["amount"]), key=f"po_amt_{i}")
+
+        st.button("➕ Add item", on_click=po_add_item)
+        st.button("➖ Remove item", on_click=po_remove_item)
+
+    with colB:
+        st.write("### Template")
+        template_po = st.selectbox("PO Template", ["Cream Minimalist", "Playful Pastel", "Modern Monochrome"])
+
+        save_po = st.checkbox("Save PO to server", value=True)
+
+    submit_po = st.button("Generate PO")
+
+    if submit_po:
+        updated_items = []
+        for i in range(len(st.session_state.po_items)):
+            updated_items.append({
+                "name": st.session_state.get(f"po_name_{i}", ""),
+                "amount": float(st.session_state.get(f"po_amt_{i}", 0)),
+            })
+
+        total = sum(it["amount"] for it in updated_items)
+
+        initials = make_initials(vendor_name)
+        dt = datetime.combine(po_date, datetime.min.time())
+        seq = get_next_po_sequence(initials, dt.year)
+        po_no = build_po_number(initials, seq, dt)
+
+        tpl_map = {
+            "Cream Minimalist": "cream",
+            "Playful Pastel": "pastel",
+            "Modern Monochrome": "mono",
+        }
+        tpl_key = tpl_map.get(template_po, "cream")
+
+        data = {
+            "po_no": po_no,
+            "po_date": dt,
+            "vendor_name": vendor_name,
+            "vendor_address": vendor_address,
+            "issuer_name": issuer_name,
+            "issuer_address": issuer_address,
+            "items": updated_items,
+            "total": total,
+            "currency_symbol": currency_symbol,
+        }
+
+        pdf_bytes = create_po_pdf_bytes(data, tpl_key)
+        filename = f"{po_no.replace('/', '-')}.pdf"
+
+        # Upload to Supabase (bucket: pos)
+        bucket = supabase.storage.from_("pos")
+        bucket.upload(filename, pdf_bytes, {"content-type": "application/pdf"})
+        pdf_url = bucket.get_public_url(filename)
+
+        if save_po:
+            save_po_record(
+                vendor_name,
+                initials,
+                seq,
+                po_no,
+                dt,
+                template_po,
+                float(total),
+                pdf_url,
+                issuer_name,
+                issuer_address,
+                currency_symbol
+            )
+
+        st.success(f"PO {po_no} created.")
+        st.download_button("Download PO PDF", pdf_bytes, filename)
 
 # Sidebar: options & recent history
 with st.sidebar:
@@ -453,7 +684,7 @@ if submit:
         st.stop()
 
     # Create unique filename with timestamp to avoid 409 duplicate errors
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
     pdf_filename = f"{invoice_no.replace('/', '-')}_{timestamp}.pdf"
     pdf_bytes = create_pdf_bytes(data, tpl_key)
     
@@ -464,7 +695,10 @@ if submit:
         res = bucket.upload(
             pdf_filename,
             pdf_bytes,
-            {"content-type": "application/pdf"}
+            {
+                "content-type": "application/pdf",
+                "upsert": False
+            }
         )
     
         # Get public URL for Supabase Storage file
@@ -477,16 +711,21 @@ if submit:
     # Save invoice record (store pdf_url instead of local pdf_path)
     if save_pdf:
         save_invoice_record(
-            vendor_name,
-            vendor_initials,
-            seq,
-            invoice_no,
-            inv_dt,
-            datetime.combine(due_date, datetime.min.time()),
-            template_choice,
-            float(total),
-            pdf_url or ""
-        )
+        vendor_name,
+        vendor_initials,
+        seq,
+        invoice_no,
+        inv_dt,
+        datetime.combine(due_date, datetime.min.time()),
+        template_choice,
+        float(total),
+        pdf_url or "",
+        bank,
+        account_name,
+        account_no,
+        swift,
+        currency_symbol
+    )
         st.success(f"Saved invoice {invoice_no} and logged it.")
 
     # Preview + download button
