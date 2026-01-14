@@ -565,34 +565,43 @@ with tab_invoice:
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
         filename = f"{invoice_no.replace('/', '-')}_{timestamp}.pdf"
         
+        # Upload PDF
         try:
-            bucket.upload(filename, pdf_bytes)
+            bucket.upload(
+                path=filename,
+                file=pdf_bytes,
+                file_options={"content-type": "application/pdf"}
+            )
         except Exception as e:
             st.error(f"PDF upload failed: {e}")
             st.stop()
         
-        pdf_url = bucket.get_public_url(filename)
+        # Get public URL
+        pdf_url = bucket.get_public_url(filename)["publicUrl"]
         
-        db_res = supabase.table("invoices").insert({
-            "name": name,
-            "initials": vendor_initials,
-            "seq": seq,
-            "invoice_no": invoice_no,
-            "invoice_date": inv_dt.isoformat(),
-            "due_date": datetime.combine(due_date, datetime.min.time()).isoformat(),
-            "template": tpl_key,
-            "total": total,
-            "pdf_path": filename,
-            "bank": bank,
-            "account_name": account_name,
-            "account_no": account_no,
-            "swift": swift,
-            "currency": currency_symbol,
-        }).execute()
-        
-        if db_res.error:
+        # Insert DB record
+        try:
+            db_res = supabase.table("invoices").insert({
+                "name": name,
+                "initials": vendor_initials,
+                "seq": seq,
+                "invoice_no": invoice_no,
+                "invoice_date": inv_dt.isoformat(),
+                "due_date": datetime.combine(due_date, datetime.min.time()).isoformat(),
+                "template": tpl_key,
+                "total": total,
+                "pdf_path": filename,
+                "pdf_url": pdf_url,
+                "bank": bank,
+                "account_name": account_name,
+                "account_no": account_no,
+                "swift": swift,
+                "currency": currency_symbol,
+            }).execute()
+        except Exception as e:
+            # Rollback uploaded file
             bucket.remove([filename])
-            st.error(f"Invoice DB insert failed: {db_res.error}")
+            st.error(f"Invoice DB insert failed: {e}")
             st.stop()
 
         st.download_button("Download Invoice PDF", pdf_bytes, filename)
