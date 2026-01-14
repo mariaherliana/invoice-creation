@@ -397,10 +397,10 @@ with tab_po:
 
         bucket = supabase.storage.from_("pos")
 
-        upload_res = bucket.upload(filename, pdf_bytes)
-        
-        if upload_res.error:
-            st.error(f"PO PDF upload failed: {upload_res.error}")
+        try:
+            bucket.upload(filename, pdf_bytes)
+        except Exception as e:
+            st.error(f"PO PDF upload failed: {e}")
             st.stop()
         
         pdf_url = bucket.get_public_url(filename)
@@ -565,10 +565,10 @@ with tab_invoice:
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
         filename = f"{invoice_no.replace('/', '-')}_{timestamp}.pdf"
         
-        upload_res = bucket.upload(filename, pdf_bytes)
-        
-        if upload_res.error:
-            st.error(f"PDF upload failed: {upload_res.error}")
+        try:
+            bucket.upload(filename, pdf_bytes)
+        except Exception as e:
+            st.error(f"PDF upload failed: {e}")
             st.stop()
         
         pdf_url = bucket.get_public_url(filename)
