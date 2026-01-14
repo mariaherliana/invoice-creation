@@ -623,7 +623,6 @@ with tab_invoice:
                 pass  # Ignore errors during cleanup
             st.error(f"Invoice DB insert failed: {e}")
             st.stop()
-        
         return pdf_url
 
         st.download_button("Download Invoice PDF", pdf_bytes, filename)
