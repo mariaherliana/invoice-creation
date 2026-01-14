@@ -396,8 +396,34 @@ with tab_po:
         filename = f"{po_no.replace('/', '-')}.pdf"
 
         bucket = supabase.storage.from_("pos")
-        bucket.upload(filename, pdf_bytes)
+
+        upload_res = bucket.upload(filename, pdf_bytes)
+        
+        if upload_res.get("error"):
+            st.error(f"PO PDF upload failed: {upload_res['error']['message']}")
+            st.stop()
+        
         pdf_url = bucket.get_public_url(filename)
+        
+        db_res = supabase.table("pos").insert({
+            "vendor_name": vendor_name,
+            "vendor_address": vendor_address,
+            "issuer_name": issuer_name,
+            "issuer_address": issuer_address,
+            "initials": initials,
+            "seq": seq,
+            "po_no": po_no,
+            "po_date": dt.isoformat(),
+            "template": tpl_key,
+            "total": total,
+            "pdf_url": pdf_url,
+            "currency": currency_symbol,
+        }).execute()
+        
+        if db_res.error:
+            bucket.remove([filename])
+            st.error(f"PO DB insert failed: {db_res.error.message}")
+            st.stop()
 
         st.download_button("Download PO PDF", pdf_bytes, filename)
 
@@ -535,10 +561,41 @@ with tab_invoice:
         filename = f"{invoice_no.replace('/', '-')}.pdf"
 
         bucket = supabase.storage.from_("invoices")
+
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
         filename = f"{invoice_no.replace('/', '-')}_{timestamp}.pdf"
-        bucket.upload(filename, pdf_bytes)
+        
+        upload_res = bucket.upload(filename, pdf_bytes)
+        
+        if upload_res.get("error"):
+            st.error(f"PDF upload failed: {upload_res['error']['message']}")
+            st.stop()
+        
         pdf_url = bucket.get_public_url(filename)
+        
+        # ✅ INSERT INTO invoices TABLE — THIS GOES HERE
+        db_res = supabase.table("invoices").insert({
+            "name": name,
+            "initials": vendor_initials,
+            "seq": seq,
+            "invoice_no": invoice_no,
+            "invoice_date": inv_dt.isoformat(),
+            "due_date": datetime.combine(due_date, datetime.min.time()).isoformat(),
+            "template": tpl_key,
+            "total": total,
+            "pdf_path": filename,
+            "bank": bank,
+            "account_name": account_name,
+            "account_no": account_no,
+            "swift": swift,
+            "currency": currency_symbol,
+        }).execute()
+        
+        if db_res.error:
+            # rollback orphan file
+            bucket.remove([filename])
+            st.error(f"Invoice DB insert failed: {db_res.error.message}")
+            st.stop()
 
         st.download_button("Download Invoice PDF", pdf_bytes, filename)
 
