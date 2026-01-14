@@ -399,8 +399,8 @@ with tab_po:
 
         upload_res = bucket.upload(filename, pdf_bytes)
         
-        if upload_res.get("error"):
-            st.error(f"PO PDF upload failed: {upload_res['error']['message']}")
+        if upload_res.error:
+            st.error(f"PO PDF upload failed: {upload_res.error}")
             st.stop()
         
         pdf_url = bucket.get_public_url(filename)
@@ -422,7 +422,7 @@ with tab_po:
         
         if db_res.error:
             bucket.remove([filename])
-            st.error(f"PO DB insert failed: {db_res.error.message}")
+            st.error(f"PO DB insert failed: {db_res.error}")
             st.stop()
 
         st.download_button("Download PO PDF", pdf_bytes, filename)
@@ -567,13 +567,12 @@ with tab_invoice:
         
         upload_res = bucket.upload(filename, pdf_bytes)
         
-        if upload_res.get("error"):
-            st.error(f"PDF upload failed: {upload_res['error']['message']}")
+        if upload_res.error:
+            st.error(f"PDF upload failed: {upload_res.error}")
             st.stop()
         
         pdf_url = bucket.get_public_url(filename)
         
-        # ✅ INSERT INTO invoices TABLE — THIS GOES HERE
         db_res = supabase.table("invoices").insert({
             "name": name,
             "initials": vendor_initials,
@@ -592,9 +591,8 @@ with tab_invoice:
         }).execute()
         
         if db_res.error:
-            # rollback orphan file
             bucket.remove([filename])
-            st.error(f"Invoice DB insert failed: {db_res.error.message}")
+            st.error(f"Invoice DB insert failed: {db_res.error}")
             st.stop()
 
         st.download_button("Download Invoice PDF", pdf_bytes, filename)
