@@ -631,7 +631,7 @@ with tab_invoice:
             st.write(f"{bank} • {account_name} • {account_no} • SWIFT: {swift}")
     
         with colp2:
-            st.download_button("Download PDF", data=pdf_bytes, file_name=pdf_filename, mime="application/pdf")
+            st.download_button("Download PDF", data=pdf_bytes, file_name=filename, mime="application/pdf")
 
 # -----------------------
 # Footer
