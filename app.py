@@ -444,7 +444,8 @@ with tab_po:
         }
 
         pdf_bytes = create_po_pdf_bytes(data, tpl_key)
-        filename = f"{po_no.replace('/', '-')}.pdf"
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
+        filename = f"{po_no.replace('/', '-')}_{timestamp}.pdf"
         
         if save_po:
             try:
