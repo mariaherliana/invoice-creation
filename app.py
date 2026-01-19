@@ -67,6 +67,29 @@ def get_next_sequence(initials: str, year: int):
 def build_invoice_number(initials, seq, dt):
     return f"{seq:03d}/INV-{initials}/{to_roman_month(dt)}/{dt.year}"
 
+def save_invoice_record(name, initials, seq, invoice_no, invoice_date, due_date, template, total, pdf_path):
+    data = {
+        "name": name,
+        "initials": initials,
+        "seq": seq,
+        "invoice_no": invoice_no,
+        "invoice_date": invoice_date.isoformat(),
+        "due_date": due_date.isoformat(),
+        "template": template,
+        "total": total,
+        "pdf_path": str(pdf_url),
+        "bank": bank,
+        "account_name": account_name,
+        "account_no": account_no,
+        "swift": swift,
+        "currency": currency_symbol,
+    }
+    supabase.table("invoices").insert(data).execute()
+
+def fetch_history(limit=100):
+    res = supabase.table("invoices").select("*").order("created_at", desc=True).limit(limit).execute()
+    return res.data or []
+
 
 def get_last_remittance(name: str):
     if not name:
@@ -572,39 +595,43 @@ with tab_invoice:
                 file=pdf_bytes,
                 file_options={"content-type": "application/pdf"}
             )
-        except Exception as e:
-            st.error(f"PDF upload failed: {e}")
-            st.stop()
+            # Get public URL
+            pdf_url = bucket.get_public_url(filename)["publicUrl"]
         
-        # Get public URL
-        pdf_url = bucket.get_public_url(filename)["publicUrl"]
-        
-        # Insert DB record
-        try:
-            db_res = supabase.table("invoices").insert({
-                "name": name,
-                "initials": vendor_initials,
-                "seq": seq,
-                "invoice_no": invoice_no,
-                "invoice_date": inv_dt.isoformat(),
-                "due_date": datetime.combine(due_date, datetime.min.time()).isoformat(),
-                "template": tpl_key,
-                "total": total,
-                "pdf_path": filename,
-                "pdf_url": pdf_url,
-                "bank": bank,
-                "account_name": account_name,
-                "account_no": account_no,
-                "swift": swift,
-                "currency": currency_symbol,
-            }).execute()
         except Exception as e:
-            # Rollback uploaded file
-            bucket.remove([filename])
-            st.error(f"Invoice DB insert failed: {e}")
-            st.stop()
-
-        st.download_button("Download Invoice PDF", pdf_bytes, filename)
+            st.error(f"Failed to upload PDF to Supabase: {e}")
+            pdf_url = None
+        
+        # Save invoice record (store pdf_url instead of local pdf_path)
+        if save_pdf:
+            save_invoice_record(
+                vendor_name,
+                vendor_initials,
+                seq,
+                invoice_no,
+                inv_dt,
+                datetime.combine(due_date, datetime.min.time()),
+                template_choice,
+                float(total),
+                pdf_url or ""
+            )
+            st.success(f"Saved invoice {invoice_no} and logged it.")
+    
+        # Preview + download button
+        st.markdown("### Preview")
+        colp1, colp2 = st.columns([2,1])
+        with colp1:
+            st.write(f"**{invoice_no}** — {vendor_clean}")
+            st.write(f"Date: {invoice_date.strftime('%d-%b-%Y')}, Due: {due_date.strftime('%d-%b-%Y')}")
+            st.write("Items:")
+            for i, it in enumerate(cleaned_items, 1):
+                st.write(f"{i}. {it['name']} — {it.get('desc','')} — {currency_symbol} {int(it['amount']):,}")
+            st.write(f"**TOTAL: {currency_symbol} {int(total):,}**")
+            st.write("Remittance:")
+            st.write(f"{bank} • {account_name} • {account_no} • SWIFT: {swift}")
+    
+        with colp2:
+            st.download_button("Download PDF", data=pdf_bytes, file_name=pdf_filename, mime="application/pdf")
 
 # -----------------------
 # Footer
@@ -613,7 +640,7 @@ with tab_invoice:
 st.markdown("""
 ---
 <div style='text-align:center; color:#7c7368; font-size:13px;'>
-<b>Paperbean</b> • v4.0.0 — A soft & tidy invoice & PO generator<br>
+<b>Paperbean</b> • v4.1.4 — A soft & tidy invoice & PO generator<br>
 © 2025 Paperbean
 </div>
 """, unsafe_allow_html=True)
