@@ -472,7 +472,6 @@ with tab_po:
                         "vendor_address": vendor_address,
                         "issuer_name": issuer_name,
                         "issuer_address": issuer_address,
-                        "initials": initials,
                         # sequencing + reporting
                         "initials": seq_key,                 # e.g. "AB-CD"
                         "issuer_initials": issuer_initials,  # e.g. "AB"
