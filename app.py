@@ -621,7 +621,7 @@ with tab_invoice:
         st.markdown("### Preview")
         colp1, colp2 = st.columns([2,1])
         with colp1:
-            st.write(f"**{invoice_no}** — {vendor_clean}")
+            st.write(f"**{invoice_no}** — {vendor_name}")
             st.write(f"Date: {invoice_date.strftime('%d-%b-%Y')}, Due: {due_date.strftime('%d-%b-%Y')}")
             st.write("Items:")
             for i, it in enumerate(cleaned_items, 1):
