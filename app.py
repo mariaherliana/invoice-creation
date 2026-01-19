@@ -142,7 +142,7 @@ def save_po_to_supabase(pdf_bytes, filename, po_payload):
 
     pdf_url = bucket.get_public_url(filename)  # ← STRING
 
-    res = supabase.table("pos").insert({
+    res = supabase.table("purchase_orders").insert({
         **po_payload,
         "pdf_url": pdf_url,
     }).execute()
@@ -687,7 +687,7 @@ with tab_invoice:
 st.markdown("""
 ---
 <div style='text-align:center; color:#7c7368; font-size:13px;'>
-<b>Paperbean</b> • v4.2.2 — A soft & tidy invoice & PO generator<br>
+<b>Paperbean</b> • v4.2.5 — A soft & tidy invoice & PO generator<br>
 © 2025 Paperbean
 </div>
 """, unsafe_allow_html=True)
