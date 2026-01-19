@@ -131,6 +131,34 @@ def get_next_po_sequence(initials: str, year: int):
 def build_po_number(initials, seq, dt):
     return f"{seq:03d}/PO-{initials}/{to_roman_month(dt)}/{dt.year}"
 
+def save_po_to_supabase(
+    pdf_bytes: bytes,
+    filename: str,
+    po_payload: dict
+) -> str:
+    bucket = supabase.storage.from_("pos")
+
+    # Upload PDF
+    bucket.upload(
+        path=filename,
+        file=pdf_bytes,
+        file_options={"content-type": "application/pdf"}
+    )
+
+    pdf_url = bucket.get_public_url(filename)["publicUrl"]
+
+    # Insert DB row
+    res = supabase.table("pos").insert({
+        **po_payload,
+        "pdf_url": pdf_url,
+    }).execute()
+
+    if res.error:
+        bucket.remove([filename])
+        raise RuntimeError(res.error)
+
+    return pdf_url
+
 # -----------------------
 # PDF GENERATION
 # -----------------------
@@ -417,36 +445,29 @@ with tab_po:
 
         pdf_bytes = create_po_pdf_bytes(data, tpl_key)
         filename = f"{po_no.replace('/', '-')}.pdf"
-
-        bucket = supabase.storage.from_("pos")
-
-        try:
-            bucket.upload(filename, pdf_bytes)
-        except Exception as e:
-            st.error(f"PO PDF upload failed: {e}")
-            st.stop()
         
-        pdf_url = bucket.get_public_url(filename)
-        
-        db_res = supabase.table("pos").insert({
-            "vendor_name": vendor_name,
-            "vendor_address": vendor_address,
-            "issuer_name": issuer_name,
-            "issuer_address": issuer_address,
-            "initials": initials,
-            "seq": seq,
-            "po_no": po_no,
-            "po_date": dt.isoformat(),
-            "template": tpl_key,
-            "total": total,
-            "pdf_url": pdf_url,
-            "currency": currency_symbol,
-        }).execute()
-        
-        if db_res.error:
-            bucket.remove([filename])
-            st.error(f"PO DB insert failed: {db_res.error}")
-            st.stop()
+        if save_po:
+            try:
+                pdf_url = save_po_to_supabase(
+                    pdf_bytes=pdf_bytes,
+                    filename=filename,
+                    po_payload={
+                        "vendor_name": vendor_name,
+                        "vendor_address": vendor_address,
+                        "issuer_name": issuer_name,
+                        "issuer_address": issuer_address,
+                        "initials": initials,
+                        "seq": seq,
+                        "po_no": po_no,
+                        "po_date": dt.isoformat(),
+                        "template": tpl_key,
+                        "total": total,
+                        "currency": currency_symbol,
+                    }
+                )
+            except Exception as e:
+                st.error(f"Failed to save PO: {e}")
+                st.stop()
 
         st.download_button("Download PO PDF", pdf_bytes, filename)
 
@@ -640,7 +661,7 @@ with tab_invoice:
 st.markdown("""
 ---
 <div style='text-align:center; color:#7c7368; font-size:13px;'>
-<b>Paperbean</b> • v4.1.4 — A soft & tidy invoice & PO generator<br>
+<b>Paperbean</b> • v4.1.6 — A soft & tidy invoice & PO generator<br>
 © 2025 Paperbean
 </div>
 """, unsafe_allow_html=True)
