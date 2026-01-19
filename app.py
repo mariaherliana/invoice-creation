@@ -131,24 +131,18 @@ def get_next_po_sequence(initials: str, year: int):
 def build_po_number(initials, seq, dt):
     return f"{seq:03d}/PO-{initials}/{to_roman_month(dt)}/{dt.year}"
 
-def save_po_to_supabase(
-    pdf_bytes: bytes,
-    filename: str,
-    po_payload: dict
-) -> str:
+def save_po_to_supabase(pdf_bytes, filename, po_payload):
     bucket = supabase.storage.from_("pos")
 
-    # Upload PDF
     bucket.upload(
         path=filename,
         file=pdf_bytes,
         file_options={"content-type": "application/pdf"}
     )
 
-    pdf_url = bucket.get_public_url(filename)["publicUrl"]
+    pdf_url = bucket.get_public_url(filename)  # ← STRING
 
-    # Insert DB row
-    res = supabase.table("purchase_orders").insert({
+    res = supabase.table("pos").insert({
         **po_payload,
         "pdf_url": pdf_url,
     }).execute()
