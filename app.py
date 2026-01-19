@@ -413,6 +413,9 @@ with tab_po:
         if not issuer_name or not vendor_name:
             st.error("Issuer name and Vendor name are required to generate a PO.")
             st.stop()
+
+        # ⏱ define date ONCE, early
+        dt = datetime.combine(po_date, datetime.min.time())
             
         updated_items = [{
             "name": st.session_state[f"po_name_{i}"],
