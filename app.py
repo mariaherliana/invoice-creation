@@ -128,8 +128,12 @@ def get_next_po_sequence(initials: str, year: int):
     return max(r["seq"] for r in filtered) + 1
 
 
-def build_po_number(initials, seq, dt):
-    return f"{seq:03d}/PO-{initials}/{to_roman_month(dt)}/{dt.year}"
+def build_po_number(issuer_initials, vendor_initials, seq, dt):
+    return (
+        f"{seq:03d}/PO-"
+        f"{issuer_initials}-{vendor_initials}/"
+        f"{to_roman_month(dt)}/{dt.year}"
+    )
 
 def save_po_to_supabase(pdf_bytes, filename, po_payload):
     bucket = supabase.storage.from_("pos")
@@ -406,6 +410,10 @@ with tab_po:
     submit_po = st.button("Generate PO")
 
     if submit_po:
+        if not issuer_name or not vendor_name:
+            st.error("Issuer name and Vendor name are required to generate a PO.")
+            st.stop()
+            
         updated_items = [{
             "name": st.session_state[f"po_name_{i}"],
             "amount": float(st.session_state[f"po_amt_{i}"])
@@ -413,10 +421,20 @@ with tab_po:
 
         total = sum(it["amount"] for it in updated_items)
 
-        initials = make_initials(vendor_name)
-        dt = datetime.combine(po_date, datetime.min.time())
-        seq = get_next_po_sequence(initials, dt.year)
-        po_no = build_po_number(initials, seq, dt)
+        issuer_initials = make_initials(issuer_name)
+        vendor_initials = make_initials(vendor_name)
+        
+        # this is the sequencing key
+        seq_key = f"{issuer_initials}-{vendor_initials}"
+        
+        seq = get_next_po_sequence(seq_key, dt.year)
+        
+        po_no = build_po_number(
+            issuer_initials,
+            vendor_initials,
+            seq,
+            dt
+        )
 
         tpl_map = {
             "Cream Minimalist": "cream",
@@ -452,7 +470,10 @@ with tab_po:
                         "issuer_name": issuer_name,
                         "issuer_address": issuer_address,
                         "initials": initials,
-                        "seq": seq,
+                        # sequencing + reporting
+                        "initials": seq_key,                 # e.g. "AB-CD"
+                        "issuer_initials": issuer_initials,  # e.g. "AB"
+                        "vendor_initials": vendor_initials,  # e.g. "CD"
                         "po_no": po_no,
                         "po_date": dt.isoformat(),
                         "template": tpl_key,
@@ -687,7 +708,7 @@ with tab_invoice:
 st.markdown("""
 ---
 <div style='text-align:center; color:#7c7368; font-size:13px;'>
-<b>Paperbean</b> • v4.2.5 — A soft & tidy invoice & PO generator<br>
+<b>Paperbean</b> • v4.2.6 — A soft & tidy invoice & PO generator<br>
 © 2025 Paperbean
 </div>
 """, unsafe_allow_html=True)
