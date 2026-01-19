@@ -624,7 +624,7 @@ with tab_invoice:
             st.write(f"**{invoice_no}** — {vendor_name}")
             st.write(f"Date: {invoice_date.strftime('%d-%b-%Y')}, Due: {due_date.strftime('%d-%b-%Y')}")
             st.write("Items:")
-            for i, it in enumerate(cleaned_items, 1):
+            for i, it in enumerate(items, 1):
                 st.write(f"{i}. {it['name']} — {it.get('desc','')} — {currency_symbol} {int(it['amount']):,}")
             st.write(f"**TOTAL: {currency_symbol} {int(total):,}**")
             st.write("Remittance:")
