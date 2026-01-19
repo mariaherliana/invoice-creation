@@ -469,7 +469,38 @@ with tab_po:
                 st.error(f"Failed to save PO: {e}")
                 st.stop()
 
-        st.download_button("Download PO PDF", pdf_bytes, filename)
+        st.markdown("### Preview")
+
+        colp1, colp2 = st.columns([2, 1])
+        
+        with colp1:
+            st.write(f"**{po_no}**")
+            st.write(f"PO Date: {dt.strftime('%d-%b-%Y')}")
+            st.write("PO To:")
+            st.write(vendor_name)
+            if vendor_address:
+                st.write(vendor_address)
+        
+            st.write("Issued By:")
+            st.write(issuer_name)
+            if issuer_address:
+                st.write(issuer_address)
+        
+            st.write("Items:")
+            for i, it in enumerate(updated_items, 1):
+                st.write(
+                    f"{i}. {it['name']} — {currency_symbol} {int(it['amount']):,}"
+                )
+        
+            st.write(f"**TOTAL: {currency_symbol} {int(total):,}**")
+        
+        with colp2:
+            st.download_button(
+                "Download PO PDF",
+                data=pdf_bytes,
+                file_name=filename,
+                mime="application/pdf"
+            )
 
 # =====================================================
 # INVOICE TAB (clean, corrected)
