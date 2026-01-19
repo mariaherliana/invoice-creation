@@ -142,14 +142,14 @@ def save_po_to_supabase(pdf_bytes, filename, po_payload):
 
     pdf_url = bucket.get_public_url(filename)  # ← STRING
 
-    res = supabase.table("purchase_orders").insert({
-        **po_payload,
-        "pdf_url": pdf_url,
-    }).execute()
-
-    if res.error:
+    try:
+        supabase.table("purchase_orders").insert({
+            **po_payload,
+            "pdf_url": pdf_url,
+        }).execute()
+    except Exception as e:
         bucket.remove([filename])
-        raise RuntimeError(res.error)
+        raise RuntimeError(e)
 
     return pdf_url
 
