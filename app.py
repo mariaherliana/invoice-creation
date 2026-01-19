@@ -136,7 +136,7 @@ def save_po_to_supabase(
     filename: str,
     po_payload: dict
 ) -> str:
-    bucket = supabase.storage.from_("pos")
+    bucket = supabase.storage.from_("purchase_orders")
 
     # Upload PDF
     bucket.upload(
